@@ -9,7 +9,7 @@
     }
   },
   "profiles": {
-    "LocalizationService": {
+    "AuthService": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
