@@ -5,19 +5,21 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <DockerfileRunArguments>-p "4049:443" -p "5059:80"</DockerfileRunArguments>        
+        <DockerfileRunArguments>-p "4043:443" -p "5053:80"</DockerfileRunArguments>        
         
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="LH.ForYou.CommonLibrary" Version="1.0.2" />
         <PackageReference Include="MassTransit.RabbitMQ" Version="8.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="6.0.7" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary\CommonLibrary.csproj" />
+      <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary\CommonLibrary.csproj" />
     </ItemGroup>
+    
     <ItemGroup>
       <Folder Include="Implementations" />
       <Folder Include="Signals" />
