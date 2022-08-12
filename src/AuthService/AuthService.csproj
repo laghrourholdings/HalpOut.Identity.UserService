@@ -10,17 +10,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Flurl" Version="3.0.6" />
-        <PackageReference Include="Flurl.Http" Version="3.2.4" />
-        <PackageReference Include="Hangfire.AspNetCore" Version="1.7.30" />
-        <PackageReference Include="Hangfire.InMemory" Version="0.3.4" />
-        <PackageReference Include="LH.ForYou.CommonLibrary" Version="1.0.3" />
-        <PackageReference Include="MassTransit.RabbitMQ" Version="8.0.5" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="6.0.7" />
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+        <PackageReference Include="LH.ForYou.CommonLibrary.AspNetCore" Version="1.0.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="6.0.8" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary.AspNetCore\CommonLibrary.AspNetCore.csproj" />
       <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary\CommonLibrary.csproj" />
     </ItemGroup>
     

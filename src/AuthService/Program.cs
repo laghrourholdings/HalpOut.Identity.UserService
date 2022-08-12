@@ -1,33 +1,20 @@
-//using CommonLibrary.MassTransit;
-
-using CommonLibrary.Extentions.MassTransit;
-using CommonLibrary.Settings;
+using CommonLibrary.AspNetCore;
+using Serilog;
+using ILogger = Serilog.ILogger;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-//builder.Services.AddMassTransitWithRabbitMq();
-builder.Services.Configure<ServiceSettings>(builder.Configuration.GetSection("ServiceSettings"));
-builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("RabbitMQSettings"));
-builder.Services.AddMassTransitWithRabbitMq();
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
+var  MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
+ILogger logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins);
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
+app.UseCommonLibrary(MyAllowSpecificOrigins);
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
 app.Run();
