@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="LH.ForYou.CommonLibrary.AspNetCore" Version="1.0.3" />
+        <PackageReference Include="LH.ForYou.CommonLibrary.AspNetCore" Version="1.0.4" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="6.0.8" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     </ItemGroup>
