@@ -25,11 +25,6 @@ builder.Services.AddIdentity<User, UserRole>(options =>
         options.SignIn.RequireConfirmedAccount = true;
     })
     .AddEntityFrameworkStores<AuthIdentityDbContext>();
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("ElevatedRights", policy =>
-        policy.RequireRole("Administrator", "PowerUser", "BackupAdministrator"));
-});
 
 
 var app = builder.Build();
