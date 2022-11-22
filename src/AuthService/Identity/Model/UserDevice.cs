@@ -8,7 +8,7 @@ public class UserDevice : IObject, ISuspendable, IDeletable
     public Guid UserId { get; set; }
     public DateTimeOffset CreationDate { get; set; }
     public string? Descriptor { get; set; }
-    public string IpAddress { get; set; }
+    public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
     public string? DeviceName { get; set; }
     public string? DeviceType { get; set; } 
