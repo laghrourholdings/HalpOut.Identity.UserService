@@ -1,4 +1,5 @@
 using AuthService.Identity;
+using AuthService.Identity.Model;
 using CommonLibrary.AspNetCore;
 using Microsoft.AspNetCore.Identity;
 using Serilog;
@@ -11,9 +12,9 @@ var logger = new LoggerConfiguration().WriteTo.Console();
 builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins);
 builder.Services.AddSwaggerGen();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-builder.Services.AddDbContext<ApplicationDbContext>();
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddDbContext<AuthIdentityDbContext>();
+builder.Services.AddIdentity<User, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true)
+    .AddEntityFrameworkStores<AuthIdentityDbContext>();
 var app = builder.Build();
 app.UseCommonLibrary(MyAllowSpecificOrigins);
 
