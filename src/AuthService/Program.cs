@@ -1,10 +1,12 @@
 using AuthService.EFCore;
 using AuthService.Identity;
 using AuthService.Identity.Managers;
+using AuthService.Identity.Stores;
 using AuthService.Middleware.Authentication;
 using AuthService.Middleware.Authorization;
 using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Identity.Model;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Serilog;
@@ -32,7 +34,20 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     .AddDefaultTokenProviders()
     .AddEntityFrameworkStores<AuthIdentityDbContext>();
 builder.Services.AddDbContext<AuthIdentityDbContext>();
-builder.Services.AddAuthentication(UserAuthenticationHandler.Schema).AddScheme<UserAuthenticationOptions, UserAuthenticationHandler>(UserAuthenticationHandler.Schema, null);
+
+builder.Services.AddAuthentication(o =>
+{
+    o.DefaultScheme = IdentityConstants.ApplicationScheme;
+    o.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+}).AddIdentityCookies(o =>
+{
+    o.ApplicationCookie.PostConfigure(cookie => cookie.SessionStore = new UserSessionStore(builder.Services.BuildServiceProvider()));
+});
+
+builder.Services.AddIdentityCore<IdentityUser>(o =>
+    {
+        o.Stores.MaxLengthForKeys = 128;
+    }).AddDefaultTokenProviders();
 var app = builder.Build();
 app.UseCommonLibrary(MyAllowSpecificOrigins);
 app.UseAuthentication();

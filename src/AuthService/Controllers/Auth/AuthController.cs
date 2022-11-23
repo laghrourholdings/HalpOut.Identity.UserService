@@ -1,6 +1,8 @@
-﻿using AuthService.Identity.Managers;
+﻿using System.Security.Claims;
+using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -63,6 +65,15 @@ public class AuthController : ControllerBase
             await _userManager.AddToRoleAsync(user, "Administrator");
             return Ok();
         }
+        
+        const string Issuer = "AuthService";
+        var claims = new List<Claim> {
+            new Claim(UserClaimTypes.UserSessionId, Guid.Empty.ToString(), ClaimValueTypes.String, Issuer),
+        };
+        var userIdentity = new ClaimsIdentity(claims, "User");
+        var principal = new ClaimsPrincipal(userIdentity);
+        //await _userSignInManager.SignInAsync("Cookie", principal);
+
         return BadRequest();
     }
 
