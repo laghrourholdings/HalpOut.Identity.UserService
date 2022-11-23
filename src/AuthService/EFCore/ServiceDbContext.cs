@@ -1,4 +1,4 @@
-﻿using AuthService.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Settings;
 using CommonLibrary.Logging;
 using CommonLibrary.ModelBuilders;
@@ -17,7 +17,7 @@ public class ServiceDbContext : DbContext
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         ServiceSettings serviceSettings = _configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>() ?? throw new InvalidOperationException("ServiceSettings is null");
-        optionsBuilder.UseNpgsql(serviceSettings.PostgresConnectionString);
+        optionsBuilder.UseNpgsql(serviceSettings.UserPostgresConnectionString);
     }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)

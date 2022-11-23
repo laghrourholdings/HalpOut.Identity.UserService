@@ -8,10 +8,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace AuthService.Migrations
+namespace AuthService.Migrations.AuthIdentityDb
 {
     [DbContext(typeof(AuthIdentityDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    partial class AuthIdentityDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
@@ -22,7 +22,7 @@ namespace AuthService.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("AuthService.Identity.Model.UserIdentity", b =>
+            modelBuilder.Entity("AuthService.Identity.Model.User", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
@@ -70,8 +70,20 @@ namespace AuthService.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserDetailsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserDeviceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserInterestId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
@@ -232,7 +244,7 @@ namespace AuthService.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.UserIdentity", null)
+                    b.HasOne("AuthService.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -241,7 +253,7 @@ namespace AuthService.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.UserIdentity", null)
+                    b.HasOne("AuthService.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -256,7 +268,7 @@ namespace AuthService.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("AuthService.Identity.Model.UserIdentity", null)
+                    b.HasOne("AuthService.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -265,7 +277,7 @@ namespace AuthService.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.UserIdentity", null)
+                    b.HasOne("AuthService.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

@@ -26,8 +26,8 @@
     
     <ItemGroup>
       <Folder Include="Implementations" />
+      <Folder Include="Migrations" />
       <Folder Include="Signals" />
-      <Folder Include="Slots" />
     </ItemGroup>
 
 

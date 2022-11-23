@@ -1,4 +1,4 @@
-﻿using AuthService.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Settings;
 using CommonLibrary.ModelBuilders;
 using Microsoft.AspNetCore.Identity;
@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Identity;
 
-public class AuthIdentityDbContext : IdentityDbContext<User>
+public class AuthIdentityDbContext : IdentityDbContext<User, IdentityRole, string>
 {
     private readonly IConfiguration _configuration;
 
