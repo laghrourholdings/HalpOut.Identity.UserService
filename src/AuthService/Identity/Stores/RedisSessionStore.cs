@@ -1,17 +1,18 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Redis;
 
 namespace AuthService.Identity.Stores;
 
 public class RedisSessionStore : ITicketStore
 {
     private const string KeyPrefix = "AuthSessionStore-";
-    private IDistributedCache cache;
+    private IDistributedCache _cache;
 
-    public RedisSessionStore(IDistributedCache cache)
+    public RedisSessionStore(RedisCacheOptions options)
     {
-        this.cache = cache;
+        _cache = new RedisCache(options);
     }
 
     public async Task<string> StoreAsync(AuthenticationTicket ticket)
@@ -31,7 +32,7 @@ public class RedisSessionStore : ITicketStore
             options.SetAbsoluteExpiration(expiresUtc.Value);
         }
         byte[] val = SerializeToBytes(ticket);
-        cache.Set(key, val, options);
+        _cache.Set(key, val, options);
         return Task.FromResult(0);
     }
 
@@ -39,14 +40,14 @@ public class RedisSessionStore : ITicketStore
     {
         AuthenticationTicket ticket;
         byte[] bytes = null;
-        bytes = cache.Get(key);
+        bytes = _cache.Get(key);
         ticket = DeserializeFromBytes(bytes);
         return Task.FromResult(ticket);
     }
 
     public Task RemoveAsync(string key)
     {
-        cache.Remove(key);
+        _cache.Remove(key);
         return Task.FromResult(0);
     }
 

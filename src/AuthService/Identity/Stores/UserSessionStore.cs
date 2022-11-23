@@ -38,7 +38,6 @@ public class UserSessionStore : ITicketStore
 
     public Task RenewAsync(string key, AuthenticationTicket ticket)
     {
-        ticket.Principal
         throw new NotImplementedException();
     }
 

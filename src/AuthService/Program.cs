@@ -9,6 +9,8 @@ using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Redis;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,18 +35,22 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     .AddSignInManager<UserSignInManager>()
     .AddDefaultTokenProviders()
     .AddEntityFrameworkStores<AuthIdentityDbContext>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipalFactory<User, IdentityRole>>();
 builder.Services.AddDbContext<AuthIdentityDbContext>();
-
-builder.Services.AddAuthentication(o =>
+builder.Services.ConfigureApplicationCookie(options =>
 {
-    o.DefaultScheme = IdentityConstants.ApplicationScheme;
-    o.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-}).AddIdentityCookies(o =>
-{
-    o.ApplicationCookie.PostConfigure(cookie => cookie.SessionStore = new UserSessionStore(builder.Services.BuildServiceProvider()));
+    options.ExpireTimeSpan = TimeSpan.FromDays(14);
+    options.SlidingExpiration = true;
+    options.SessionStore = new RedisSessionStore(new RedisCacheOptions
+    {
+        Configuration = "localhost:6379"
+    });
+    //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
+builder.Services.AddAuthentication();
 
-builder.Services.AddIdentityCore<IdentityUser>(o =>
+builder.Services.AddIdentityCore<User>(o =>
     {
         o.Stores.MaxLengthForKeys = 128;
     }).AddDefaultTokenProviders();
