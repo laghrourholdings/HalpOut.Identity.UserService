@@ -1,8 +1,5 @@
-﻿using CommonLibrary.AspNetCore;
-using CommonLibrary.AspNetCore.Contracts.Objects;
-using CommonLibrary.AspNetCore.Contracts.Users;
+﻿using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.Core;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using ILogger = Serilog.ILogger;

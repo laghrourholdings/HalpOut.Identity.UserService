@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace AuthService.Migrations.AuthIdentityDb
+namespace AuthService.Migrations
 {
     [DbContext(typeof(AuthIdentityDbContext))]
-    [Migration("20221123041634_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20221124031917_AuthInitial")]
+    partial class AuthInitial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -24,7 +24,7 @@ namespace AuthService.Migrations.AuthIdentityDb
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("AuthService.Identity.Model.User", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.User", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
@@ -246,7 +246,7 @@ namespace AuthService.Migrations.AuthIdentityDb
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -255,7 +255,7 @@ namespace AuthService.Migrations.AuthIdentityDb
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -270,7 +270,7 @@ namespace AuthService.Migrations.AuthIdentityDb
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("AuthService.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -279,7 +279,7 @@ namespace AuthService.Migrations.AuthIdentityDb
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("AuthService.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

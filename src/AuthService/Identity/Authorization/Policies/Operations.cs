@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 
-namespace AuthService.Middleware.Authorization.Policies;
+namespace AuthService.Identity.Authorization.Policies;
 
 public static class Operations
 {

@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 
-namespace AuthService.Middleware.Authorization;
+namespace AuthService.Identity.Authorization;
 
-public class AuthorizationMiddlewareResultHandler : IAuthorizationMiddlewareResultHandler
+public class UserAuthorizationMiddlewareResultHandler : IAuthorizationMiddlewareResultHandler
 {
-    private readonly AuthorizationMiddlewareResultHandler defaultHandler = new();
-    
+    private readonly AuthorizationMiddlewareResultHandler defaultHandler = new();    
     public async Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy,
         PolicyAuthorizationResult authorizeResult)
     {
@@ -16,6 +15,7 @@ public class AuthorizationMiddlewareResultHandler : IAuthorizationMiddlewareResu
             && authorizeResult.AuthorizationFailure!.FailedRequirements
                 .OfType<Show404Requirement>().Any())
         {
+            
             // Return a 404 to make it appear as if the resource doesn't exist.
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;

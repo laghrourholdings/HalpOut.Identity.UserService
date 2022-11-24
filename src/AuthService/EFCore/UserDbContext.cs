@@ -1,16 +1,15 @@
 ﻿using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Settings;
-using CommonLibrary.Logging;
 using CommonLibrary.ModelBuilders;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.EFCore;
 
-public class ServiceDbContext : DbContext
+public class UserDbContext : DbContext
 {
     private readonly IConfiguration _configuration;
 
-    public ServiceDbContext(DbContextOptions<ServiceDbContext> opt, IConfiguration configuration) : base(opt)
+    public UserDbContext(DbContextOptions<UserDbContext> opt, IConfiguration configuration) : base(opt)
     {
             _configuration = configuration;
     }

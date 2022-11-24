@@ -12,11 +12,10 @@ public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
     {
         return Task.Factory.StartNew(() =>
         {
-            var identity = new ClaimsIdentity();
-            identity.AddClaim(new Claim(UserClaimTypes.LogHandleId, ""));
-            identity.AddClaim(new Claim(UserClaimTypes.UserDetailsId, ""));
-            identity.AddClaim(new Claim(UserClaimTypes.UserDeviceId, ""));
-            identity.AddClaim(new Claim(UserClaimTypes.UserInterestId, ""));
+            var identity = new ClaimsIdentity(IdentityConstants.ApplicationScheme);
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+            identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
+            identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
             var principle = new ClaimsPrincipal(identity);
 
             return principle;
