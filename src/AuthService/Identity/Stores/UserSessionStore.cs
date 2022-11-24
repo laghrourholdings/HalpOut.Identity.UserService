@@ -1,53 +1,142 @@
+using System.Security.Claims;
 using AuthService.EFCore;
 using AuthService.Identity.Managers;
+using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Redis;
 
 namespace AuthService.Identity.Stores;
 
 public class UserSessionStore : ITicketStore
 {
-    private readonly ILogger _logger;
-    private readonly AuthUserManager _userManager;
-    private readonly IConfiguration _configuration;
-    private readonly ServiceDbContext _serviceDbContext;
-    private readonly UserSignInManager _userSignInManager;
+    private const string KeyPrefix = "AuthSessionStore-";
+    private IDistributedCache _cache;
+    private readonly IServiceCollection _services;
 
-    public UserSessionStore(
-        ILogger logger,
-        AuthUserManager userManager,
-        IConfiguration configuration)
+    public UserSessionStore(RedisCacheOptions options, IServiceCollection services)
     {
-        _logger = logger;
-        _userManager = userManager;
-        _configuration = configuration;
+        _cache = new RedisCache(options);
+        _services = services;
     }
 
-    public UserSessionStore(IServiceProvider provider)
+    public async Task<string> StoreAsync(AuthenticationTicket ticket)
     {
-
-        _serviceDbContext = provider.GetService<ServiceDbContext>();
-        _userManager = provider.GetService<AuthUserManager>();
-        _userSignInManager = provider.GetService<UserSignInManager>();
+        var guid = Guid.NewGuid();
+        var key = KeyPrefix + guid.ToString();
+        await RenewAsync(key, ticket);
+        using (var scope = _services.BuildServiceProvider().CreateScope())
+        {
+            var context = scope.ServiceProvider.GetService<UserDbContext>();
+            Console.WriteLine("Storing!!");
+            if (context != null)
+            {
+                var session = new UserSession
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = new Guid(ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier)),
+                    CreationDate = DateTimeOffset.Now,
+                    ExpirationDate = ticket.Properties.ExpiresUtc,
+                    Key = key,
+                    RawAuthenticationTicket = SerializeToBytes(ticket)
+                };
+                await context.UserSessions.AddAsync(session);
+                await context.SaveChangesAsync();
+            }
+            else
+            {
+                Console.WriteLine("Context is empty!");
+            }
+            
+            return key;
+        }
+    }
+    
+    // Request end
+    public async Task RenewAsync(string key, AuthenticationTicket ticket)
+    {
+        Console.WriteLine($"RenewAsync Key: {key}");
+        foreach (var vary in ticket.Principal.Claims)
+        {
+            Console.WriteLine($"{vary.Type} : {vary.Value}");
+        }
+        var options = new DistributedCacheEntryOptions();
+        var expiresUtc = ticket.Properties.ExpiresUtc;
+        
+        if (expiresUtc.HasValue)
+        {
+            options.SetAbsoluteExpiration(expiresUtc.Value);
+        }
+        byte[] val = SerializeToBytes(ticket);
+        await _cache.SetAsync(key, val, options);
+        using (var scope = _services.BuildServiceProvider().CreateScope())
+        {
+            var context = scope.ServiceProvider.GetService<UserDbContext>();
+            
+            if (context != null)
+            {
+                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
+                if (userSession != null)
+                {
+                    userSession.RawAuthenticationTicket = val;
+                    if (expiresUtc.HasValue)
+                    {
+                        userSession.ExpirationDate = expiresUtc;
+                    }
+                    context.UserSessions.Update(userSession);
+                    await context.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                Console.WriteLine("Context is empty!");
+            }
+        }
     }
 
-    public Task<string> StoreAsync(AuthenticationTicket ticket)
+    // Request start
+    public async Task<AuthenticationTicket> RetrieveAsync(string key)
     {
-        throw new NotImplementedException();
+        Console.WriteLine($"Retrieving!!");
+        AuthenticationTicket ticket;
+        byte[] bytes = null;
+        bytes =  await _cache.GetAsync(key);
+        ticket = DeserializeFromBytes(bytes);
+        return ticket;
     }
 
-    public Task RenewAsync(string key, AuthenticationTicket ticket)
+    public async Task RemoveAsync(string key)
     {
-        throw new NotImplementedException();
+        await _cache.RemoveAsync(key);
+        using (var scope = _services.BuildServiceProvider().CreateScope())
+        {
+            var context = scope.ServiceProvider.GetService<UserDbContext>();
+            if (context != null)
+            {
+                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
+                if (userSession != null)
+                {
+                    context.UserSessions.Remove(userSession);
+                    await context.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                Console.WriteLine("Context is empty!");
+            }
+        }
     }
 
-    public Task<AuthenticationTicket?> RetrieveAsync(string key)
+    private static byte[] SerializeToBytes(AuthenticationTicket source)
     {
-        throw new NotImplementedException();
+        return TicketSerializer.Default.Serialize(source);
     }
 
-    public Task RemoveAsync(string key)
+    private static AuthenticationTicket DeserializeFromBytes(byte[] source)
     {
-        throw new NotImplementedException();
+        return source == null ? null : TicketSerializer.Default.Deserialize(source);
     }
 }

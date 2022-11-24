@@ -1,15 +1,17 @@
-﻿using System.Security.Claims;
+﻿/*
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Text.Encodings.Web;
+using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
-namespace AuthService.Middleware.Authentication;
+namespace AuthService.Identity.Authentication;
 
 public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticationOptions>
     {
-        public const string Schema = "Basic";
-        private const string HeaderAuthorization = "Authorization";
+        public const string Schema = "Identity.UserCookies";
+        private const string CookieName = "Identity";
 
         public UserAuthenticationHandler(
             IOptionsMonitor<UserAuthenticationOptions> options,
@@ -22,17 +24,18 @@ public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticatio
 
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if (!Request.Headers.ContainsKey(HeaderAuthorization))
+            if (!Request.Cookies.ContainsKey(CookieName))
             {
-                return AuthenticateResult.Fail("Unauthorized - no \"" + HeaderAuthorization + "\" header found.");
+                return AuthenticateResult.Fail("Unauthorized - no \"" + CookieName + "\" header found.");
             }
 
             // get the value of the authorization header
-            string authorizationHeader = Request.Headers[HeaderAuthorization];
+            string? authorizationHeader = Request.Cookies[CookieName];
             if (string.IsNullOrEmpty(authorizationHeader))
             {
                 return AuthenticateResult.NoResult();
             }
+            Console.WriteLine(authorizationHeader);
 
             // snip the schema if it is present
             if (authorizationHeader.StartsWith(Schema, StringComparison.OrdinalIgnoreCase))
@@ -53,6 +56,13 @@ public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticatio
 
         protected AuthenticateResult ValidateToken(string token)
         {
+            Console.WriteLine(token);
+            
+            /*var claims = new List<Claim> {
+                new(nameof(user.UserName), user.UserName, ClaimValueTypes.String, Issuer),
+                new(UserClaimTypes.UserSessionId, Guid.Empty.ToString(), ClaimValueTypes.String, Issuer),
+                new(UserClaimTypes.Previlege, "Administrator", ClaimValueTypes.String, Issuer),
+            };
             var identity = new ClaimsIdentity(new List<Claim> {new(ClaimTypes.Name, token)}, Scheme.Name);
             var principal = new GenericPrincipal(identity, Array.Empty<string>());
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
@@ -62,4 +72,4 @@ public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticatio
 
     public class UserAuthenticationOptions : AuthenticationSchemeOptions
     {
-    }
+    }*/

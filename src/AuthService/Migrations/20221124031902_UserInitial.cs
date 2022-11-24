@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace AuthService.Migrations
 {
-    public partial class Initial : Migration
+    public partial class UserInitial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -77,8 +77,13 @@ namespace AuthService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DeviceId = table.Column<Guid>(type: "uuid", nullable: true),
+                    Key = table.Column<string>(type: "text", nullable: false),
                     CreationDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    Descriptor = table.Column<string>(type: "text", nullable: true)
+                    ExpirationDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    Descriptor = table.Column<string>(type: "text", nullable: true),
+                    RawAuthenticationTicket = table.Column<byte[]>(type: "bytea", nullable: false)
                 },
                 constraints: table =>
                 {

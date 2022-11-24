@@ -4,9 +4,9 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace AuthService.Migrations.AuthIdentityDb
+namespace AuthService.Migrations
 {
-    public partial class InitialCreate : Migration
+    public partial class AuthInitial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

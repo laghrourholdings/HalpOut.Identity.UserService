@@ -1,6 +1,5 @@
 ﻿using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.AspNetCore.Identity.ModelDtos;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.AspNetCore.ServiceBus;
 using MassTransit;

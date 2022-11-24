@@ -3,6 +3,7 @@ using System;
 using AuthService.EFCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,10 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AuthService.Migrations
 {
-    [DbContext(typeof(ServiceDbContext))]
-    partial class ServiceDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(UserDbContext))]
+    [Migration("20221124031902_UserInitial")]
+    partial class UserInitial
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,7 +24,7 @@ namespace AuthService.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("AuthService.Identity.Model.UserDetail", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserDetail", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -63,7 +65,7 @@ namespace AuthService.Migrations
                     b.ToTable("UserDetails");
                 });
 
-            modelBuilder.Entity("AuthService.Identity.Model.UserDevice", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserDevice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -119,7 +121,7 @@ namespace AuthService.Migrations
                     b.ToTable("UserDevices");
                 });
 
-            modelBuilder.Entity("AuthService.Identity.Model.UserInterest", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserInterest", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -145,7 +147,7 @@ namespace AuthService.Migrations
                     b.ToTable("UserInterests");
                 });
 
-            modelBuilder.Entity("AuthService.Identity.Model.UserSession", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -156,6 +158,23 @@ namespace AuthService.Migrations
 
                     b.Property<string>("Descriptor")
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("DeviceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ExpirationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("RawAuthenticationTicket")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
