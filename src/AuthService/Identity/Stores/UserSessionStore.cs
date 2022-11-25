@@ -30,22 +30,25 @@ public class UserSessionStore : ITicketStore
         var key = KeyPrefix + guid.ToString();
         using (var scope = _services.BuildServiceProvider().CreateScope())
         {
-            var context = scope.ServiceProvider.GetService<UserDbContext>();
+            var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
             var logger = scope.ServiceProvider.GetService<ILogger>();
             Console.WriteLine("Storing!!");
-            if (context != null)
+            if (authDbContext != null)
             {
-                var session = new UserSession
+                var user = await authDbContext.Users.SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+                if (user != null)
                 {
-                    Id = Guid.NewGuid(),
-                    UserId = new Guid(ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier)),
-                    CreationDate = DateTimeOffset.Now,
-                    ExpirationDate = ticket.Properties.ExpiresUtc,
-                    Key = key,
-                    RawAuthenticationTicket = SerializeToBytes(ticket)
-                };
-                await context.UserSessions.AddAsync(session);
-                await context.SaveChangesAsync();
+                    user.UserSessions.Add(new UserSession
+                    {
+                        Id = Guid.NewGuid(),
+                        CreationDate = DateTimeOffset.Now,
+                        ExpirationDate = ticket.Properties.ExpiresUtc,
+                        Key = key,
+                        RawAuthenticationTicket = SerializeToBytes(ticket)
+                    });
+                    //TODO; ADD device registration
+                    await authDbContext.SaveChangesAsync();
+                }
             }
             else
             {

@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using System.Text.Json;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
@@ -55,17 +56,12 @@ public class AuthController : ControllerBase
         {
             UserName = "username",
             Email = "email@gmail.com",
-            LogHandleId =  Guid.Empty,
-            UserDetailsId  = Guid.Empty,
-            UserDeviceId  = Guid.Empty,
-            UserInterestId  = Guid.Empty,
-            SessionId = Guid.Empty,
+            LogHandleId =  Guid.Empty
         };       
         var result = await _userManager.CreateAsync(user, "Password18!");
-        var createdUser = await _userManager.FindByNameAsync(user.UserName);
-
         if (result.Succeeded)
         {
+            var createdUser = await _userManager.FindByNameAsync(user.UserName);
             var roleExist = await _roleManager.RoleExistsAsync("Administrator");
             if (!roleExist)
             { 
@@ -76,7 +72,7 @@ public class AuthController : ControllerBase
             return Ok();
         }
         
-        return BadRequest();
+        return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
     }
 
     [HttpGet]

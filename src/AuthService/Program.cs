@@ -33,10 +33,9 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     })
     .AddSignInManager<UserSignInManager>()
     .AddDefaultTokenProviders()
-    .AddEntityFrameworkStores<AuthIdentityDbContext>();
+    .AddEntityFrameworkStores<UserDbContext>();
 
 builder.Services.AddDbContext<UserDbContext>();
-builder.Services.AddDbContext<AuthIdentityDbContext>();
 
 // builder.Services.AddIdentityCore<User>(options =>
 //     {
