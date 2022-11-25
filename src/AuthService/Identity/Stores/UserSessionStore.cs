@@ -77,30 +77,38 @@ public class UserSessionStore : ITicketStore
         byte[] val = SerializeToBytes(ticket);
         using (var scope = _services.BuildServiceProvider().CreateScope())
         {
-            var context = scope.ServiceProvider.GetService<UserDbContext>();
-            
-            if (context != null)
+            var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
+            var logger = scope.ServiceProvider.GetService<ILogger>();
+            Console.WriteLine("Storing!!");
+            if (authDbContext != null)
             {
-                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
-                if (userSession != null)
+                var user = await authDbContext.Users.SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+                if (user != null)
                 {
+                    var session = user.UserSessions.SingleOrDefault(x=>x.Key == key);
+                    if (session == null)
+                    {
+                        logger?.Error("Session not found {}", ticket);
+                        return;
+                    }
+                    if (session.IsDeleted)
+                    {
+                        await RemoveAsync(key);
+                        return;
+                    }
                     await _cache.SetAsync(key, val, options);
-                    userSession.RawAuthenticationTicket = val;
                     if (expiresUtc.HasValue)
                     {
-                        userSession.ExpirationDate = expiresUtc;
+                        session.ExpirationDate = (expiresUtc.Value);
                     }
-                    context.UserSessions.Update(userSession);
-                    await context.SaveChangesAsync();
-                }
-                else
-                {
-                    await RemoveAsync(key);
+                    session.RawAuthenticationTicket = val;
+                    await authDbContext.SaveChangesAsync();
                 }
             }
             else
             {
-                Console.WriteLine("Context is empty!");
+                logger?.Error("SessionContext is null {}", ticket);
+                await _cache.SetAsync(key, val, options);
             }
         }
     }
