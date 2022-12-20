@@ -1,4 +1,5 @@
-﻿using CommonLibrary.AspNetCore.Contracts.Users;
+﻿using AuthService.Implementations;
+using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.AspNetCore.ServiceBus;
@@ -11,7 +12,7 @@ namespace AuthService.Identity.Managers;
 
 public class AuthUserManager : UserManager<User>
 {
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILoggingService _loggingService;
     private readonly ILogger _logger;
     private readonly IConfiguration _config;
 
@@ -24,10 +25,11 @@ public class AuthUserManager : UserManager<User>
         ILookupNormalizer keyNormalizer,
         IdentityErrorDescriber errors,
         IServiceProvider services,
-        ILogger<UserManager<User>> logger, 
-        IPublishEndpoint publishEndpoint, ILogger seriLogger, IConfiguration config) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors, services, logger)
+        ILogger<UserManager<User>> logger,
+        ILoggingService loggingService,
+         ILogger seriLogger, IConfiguration config) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors, services, logger)
     {
-        _publishEndpoint = publishEndpoint;
+        _loggingService = loggingService;
         _logger = seriLogger;
         _config = config;
     }
@@ -40,13 +42,7 @@ public class AuthUserManager : UserManager<User>
         var response = await base.CreateAsync(user, password);
         if (response.Succeeded)
         {
-            var message = new ServiceBusPayload<User>
-            {
-                Descriptor = $"User created {user.Id}",
-                Contract = nameof(UserCreated),
-                Subject = user
-            };
-            await _publishEndpoint.Publish(new UserCreated(message));
+            _loggingService.CreateUserLog(user);
         }
 
         return response;
@@ -55,7 +51,7 @@ public class AuthUserManager : UserManager<User>
     public override Task<IdentityResult> UpdateAsync(
         User user)
     {
-        _logger.InformationToBusLog(_config, $"Updated user {user.Id}", user.LogHandleId, _publishEndpoint);
+        _loggingService.InformationToBusLog($"Updated user {user.Id}", user.LogHandleId);
         return base.UpdateAsync(user);
     }
 }

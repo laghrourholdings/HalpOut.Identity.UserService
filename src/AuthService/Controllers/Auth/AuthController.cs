@@ -17,13 +17,13 @@ public class AuthController : ControllerBase
 {
     private readonly IHttpContextAccessor _context;
     public readonly UserSignInManager _userSignInManager;
-    private readonly AuthUserManager _userManager;
+    private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ILogger _logger;
 
     public AuthController(IHttpContextAccessor context,
         UserSignInManager userSignInManager,
-        AuthUserManager manager,
+        UserManager<User> manager,
         RoleManager<IdentityRole> roleManager,
         Serilog.ILogger logger)
     {

@@ -6,13 +6,13 @@ using Microsoft.Extensions.Options;
 
 namespace AuthService.Identity.Managers;
 
-public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
+/*public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
 {
     public Task<ClaimsPrincipal> CreateAsync(User user)
     {
         return Task.Factory.StartNew(() =>
         {
-            var identity = new ClaimsIdentity();
+            var identity = new ClaimsIdentity(IdentityConstants.ApplicationScheme);
             identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
             identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
             identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
@@ -21,7 +21,7 @@ public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
             return principle;
         });
     }
-}
+}*/
 
 public class UserSignInManager : SignInManager<User>
 {

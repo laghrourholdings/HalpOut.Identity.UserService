@@ -4,6 +4,7 @@ using AuthService.Identity;
 using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
 using AuthService.Identity.Stores;
+using AuthService.Implementations;
 using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authorization;
@@ -20,7 +21,6 @@ var logger = new LoggerConfiguration().WriteTo.Console();
 builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins);
 builder.Services.AddSwaggerGen();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
 
 //Identity
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UserAuthorizationMiddlewareResultHandler>();
@@ -49,7 +49,7 @@ builder.Services.AddDbContext<UserDbContext>();
 //     .AddEntityFrameworkStores<AuthIdentityDbContext>();
 // 
 
-builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
+//builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.ExpireTimeSpan = TimeSpan.FromDays(14);
@@ -60,6 +60,9 @@ builder.Services.ConfigureApplicationCookie(options =>
     }, builder.Services);
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
+
+builder.Services.AddScoped<ILoggingService, LoggingService>();
+
 var app = builder.Build();
 app.UseAuthentication();
 app.UseCommonLibrary(MyAllowSpecificOrigins);
