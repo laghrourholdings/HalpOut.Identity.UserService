@@ -12,4 +12,6 @@ public interface ILoggingService
 
     public void CreateUserLog(
         User user);
+
+    public Serilog.ILogger Log();
 }

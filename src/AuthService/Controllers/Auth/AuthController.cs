@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
 using AuthService.Identity.Managers;
+using AuthService.Implementations;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authorization;
@@ -20,45 +21,57 @@ public class AuthController : ControllerBase
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ILogger _logger;
+    private readonly ILoggingService _loggingService;
 
     public AuthController(IHttpContextAccessor context,
         UserSignInManager userSignInManager,
         UserManager<User> manager,
         RoleManager<IdentityRole> roleManager,
-        Serilog.ILogger logger)
+        ILogger logger,
+        ILoggingService loggingService)
     {
         _context = context;
         _userSignInManager= userSignInManager;
         _userManager = manager;
         _roleManager = roleManager;
         _logger = logger;
+        _loggingService = loggingService;
     }
     
     [HttpPost("login")]
-    public async Task<IActionResult> Login()
+    public async Task<IActionResult> Login(
+        string username, 
+        string password)
     {
-        var result = await _userSignInManager.PasswordSignInAsync("username", "Password18!", false, false);
-        if (_context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
-        {
-            Console.WriteLine(token);
-        }
+        var result = await _userSignInManager.PasswordSignInAsync(username, password, false, false);
         if (result.Succeeded)
         {
+            var user = await _userManager.FindByNameAsync(username);
+            _loggingService.InformationToBusLog($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
+            if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
+            {
+                Console.WriteLine(token);
+                await _userManager.AddLoginAsync(user, new UserLoginInfo("AuthService", token, user.Id));
+            }
             return Ok();
         }
+        _loggingService.Log().Information("Logging failed for {username}, with device: {UserAgent}",username, _context.HttpContext.Request.Headers.UserAgent);
         return BadRequest();
     }
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<IActionResult> Register()
+    public async Task<IActionResult> Register(
+        string username, 
+        string email,
+        string password)
     {
         var user = new User
         {
-            UserName = "username",
-            Email = "email@gmail.com",
+            UserName = username,
+            Email = email,
             LogHandleId =  Guid.Empty
         };       
-        var result = await _userManager.CreateAsync(user, "Password18!");
+        var result = await _userManager.CreateAsync(user, password);
         if (result.Succeeded)
         {
             var createdUser = await _userManager.FindByNameAsync(user.UserName);
@@ -79,6 +92,14 @@ public class AuthController : ControllerBase
     [Authorize(Policy = Policies.ELEVATED_RIGHTS)]
     public async Task<IActionResult> Get()
     {
+        if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
+        {
+            Console.WriteLine(token);
+            //await _userManager.
+        }
+        User? user = _userManager.FindByNameAsync(_context.HttpContext?.User.Identity?.Name ?? string.Empty).Result;
+        //_userManager.AddLoginAsync(user, new UserLoginInfo("AuthService"));
+        _loggingService.Log().Information("User logged with privileges: {user}", user);
         return Ok("Nice!");
     }
     

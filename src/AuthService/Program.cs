@@ -15,7 +15,7 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var  MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+var  MyAllowSpecificOrigins = "7";
 
 var logger = new LoggerConfiguration().WriteTo.Console();
 builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins);
@@ -61,7 +61,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
 
-builder.Services.AddScoped<ILoggingService, LoggingService>();
+builder.Services.AddTransient<ILoggingService, LoggingService>();
 
 var app = builder.Build();
 app.UseAuthentication();

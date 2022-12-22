@@ -57,6 +57,7 @@ public class UserSessionStore : ITicketStore
             if (authDbContext != null)
             {
                 var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+                //var loggingService = scope.ServiceProvider.GetService<ILoggingService>();
                 if (user != null)
                 {
                     var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.Key == key);
@@ -97,6 +98,7 @@ public class UserSessionStore : ITicketStore
 
                             newSession.Device = device;
                         }
+
                         user.UserSessions.Add(newSession);
                         await authDbContext.SaveChangesAsync();
                         //loggingService.InformationToBusLog($"New session issued {newSession.Id}", user.LogHandleId);
@@ -144,8 +146,13 @@ public class UserSessionStore : ITicketStore
                     var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
                     if (userSession != null)
                     {
-                        context.UserSessions.Remove(userSession);
-                        await context.SaveChangesAsync();
+                        if(userSession.IsDeleted)
+                        {
+                            await RemoveAsync(key);
+                            context.UserSessions.Remove(userSession);
+                            await context.SaveChangesAsync();
+                            return null;
+                        }
                     }
                 }
                 else

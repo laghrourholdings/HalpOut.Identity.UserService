@@ -21,6 +21,10 @@ public class LoggingService : ILoggingService
         _config = config;
         _logger = logger;
     }
+    public Serilog.ILogger Log()
+    {
+        return _logger;
+    }
     public void InformationToBusLog(string message, Guid logHandleId)
     {
         _logger.InformationToBusLog(_config,message, logHandleId, _publishEndpoint);

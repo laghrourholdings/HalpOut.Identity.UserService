@@ -28,6 +28,7 @@
     </ItemGroup>
     
     <ItemGroup>
+      <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Middleware" />
       <Folder Include="Migrations" />
       <Folder Include="Signals" />
