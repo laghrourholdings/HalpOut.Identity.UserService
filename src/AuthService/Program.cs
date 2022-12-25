@@ -4,9 +4,9 @@ using AuthService.Identity;
 using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
 using AuthService.Identity.Stores;
-using AuthService.Implementations;
 using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Identity.Model;
+using CommonLibrary.AspNetCore.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Identity;
@@ -61,7 +61,6 @@ builder.Services.ConfigureApplicationCookie(options =>
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
 
-builder.Services.AddTransient<ILoggingService, LoggingService>();
 
 var app = builder.Build();
 app.UseAuthentication();

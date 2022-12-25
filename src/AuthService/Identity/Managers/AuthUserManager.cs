@@ -1,7 +1,7 @@
-﻿using AuthService.Implementations;
-using CommonLibrary.AspNetCore.Contracts.Users;
+﻿using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.AspNetCore.Logging.LoggingService;
 using CommonLibrary.AspNetCore.ServiceBus;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
@@ -42,7 +42,7 @@ public class AuthUserManager : UserManager<User>
         var response = await base.CreateAsync(user, password);
         if (response.Succeeded)
         {
-            _loggingService.CreateUserLog(user);
+            //_loggingService.InformationToLogService("user", user.LogHandleId);
         }
 
         return response;
@@ -51,7 +51,7 @@ public class AuthUserManager : UserManager<User>
     public override Task<IdentityResult> UpdateAsync(
         User user)
     {
-        _loggingService.InformationToBusLog($"Updated user {user.Id}", user.LogHandleId);
+        _loggingService.InformationToLogService($"Updated user {user.Id}", user.LogHandleId);
         return base.UpdateAsync(user);
     }
 }

@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using AuthService.EFCore;
 using AuthService.Identity.Managers;
-using AuthService.Implementations;
 using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging;
 using MassTransit;
@@ -56,7 +55,7 @@ public class UserSessionStore : ITicketStore
             var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
             if (authDbContext != null)
             {
-                var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+                var user = await authDbContext.Users.Include(x=>x.UserSessions).Include(x=>x.UserDevices).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
                 //var loggingService = scope.ServiceProvider.GetService<ILoggingService>();
                 if (user != null)
                 {

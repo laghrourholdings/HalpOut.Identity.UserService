@@ -1,48 +1,45 @@
 ﻿using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
+using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.AspNetCore.Logging.LoggingService;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using ILogger = Serilog.ILogger;
 
 namespace AuthService.Slots.Users;
 
-public class LogCreateUserResponseConsumer : IConsumer<UpdateUserLogHandle>
+public class UpdateUserLogHandleConsumer : IConsumer<UpdateUserLogHandle>
 {
     
     private readonly UserManager<User> _userManager;
-    private readonly ILogger _logger;
+    private readonly ILoggingService _loggingService;
     private readonly IConfiguration _config;
 
-    public LogCreateUserResponseConsumer(
+    public UpdateUserLogHandleConsumer(
         UserManager<User> userManager,
-        ILogger logger,
+        ILoggingService loggingService,
         IConfiguration config)
     {
         _userManager = userManager;
-        _logger = logger;
+        _loggingService = loggingService;
         _config = config;
     }
 
     
     public async Task Consume(ConsumeContext<UpdateUserLogHandle> context)
     {
-        var logContext = context.Message.Payload;
-        if (logContext.Subject == null)
-        {
-            _logger.Error("{@Descriptor} | User is null", logContext);
-            return;
-        }
-        var logHandleId = logContext.Subject.LogHandleId;
-        var user = _userManager.Users.SingleOrDefault(x => x.Id == logContext.Subject.Id);
+        var logHandleId = context.Message.LogHandleId;
+        var userId = context.Message.UserId;
+        var user = _userManager.Users.SingleOrDefault(x => x.Id == context.Message.UserId.ToString());
         if (user == null)
         {
-            _logger.Error("{@Descriptor} | User not found in db, can not update", logContext);
+            _loggingService.ErrorToLogService($"User {userId} not found, can not update", logHandleId);
             return;
         }
         user.LogHandleId = logHandleId;
         var updateResult = await _userManager.UpdateAsync(user);
         if(updateResult.Succeeded)
             return;
-        _logger.Error("{@Descriptor} | Can not assign logHandleId to user", logContext);
+        _loggingService.ErrorToLogService($"Can not assign logHandleId {logHandleId} to user {userId}", logHandleId);
     }
 }

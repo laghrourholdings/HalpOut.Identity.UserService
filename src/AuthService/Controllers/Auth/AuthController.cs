@@ -1,9 +1,12 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
 using AuthService.Identity.Managers;
-using AuthService.Implementations;
+using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
+using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.AspNetCore.Logging.LoggingService;
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -20,22 +23,22 @@ public class AuthController : ControllerBase
     public readonly UserSignInManager _userSignInManager;
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
-    private readonly ILogger _logger;
     private readonly ILoggingService _loggingService;
+    private IPublishEndpoint _publishEndpoint;
 
     public AuthController(IHttpContextAccessor context,
         UserSignInManager userSignInManager,
         UserManager<User> manager,
         RoleManager<IdentityRole> roleManager,
-        ILogger logger,
-        ILoggingService loggingService)
+        ILoggingService loggingService, 
+        IPublishEndpoint publishEndpoint)
     {
         _context = context;
         _userSignInManager= userSignInManager;
         _userManager = manager;
         _roleManager = roleManager;
-        _logger = logger;
         _loggingService = loggingService;
+        _publishEndpoint = publishEndpoint;
     }
     
     [HttpPost("login")]
@@ -47,7 +50,7 @@ public class AuthController : ControllerBase
         if (result.Succeeded)
         {
             var user = await _userManager.FindByNameAsync(username);
-            _loggingService.InformationToBusLog($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
+            _loggingService.InformationToLogService($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
             if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
             {
                 Console.WriteLine(token);
@@ -75,6 +78,7 @@ public class AuthController : ControllerBase
         if (result.Succeeded)
         {
             var createdUser = await _userManager.FindByNameAsync(user.UserName);
+            await _publishEndpoint.Publish(new UserCreated(new Guid(createdUser.Id)));
             var roleExist = await _roleManager.RoleExistsAsync("Administrator");
             if (!roleExist)
             { 
@@ -100,7 +104,7 @@ public class AuthController : ControllerBase
         User? user = _userManager.FindByNameAsync(_context.HttpContext?.User.Identity?.Name ?? string.Empty).Result;
         //_userManager.AddLoginAsync(user, new UserLoginInfo("AuthService"));
         _loggingService.Log().Information("User logged with privileges: {user}", user);
-        return Ok("Nice!");
+        return Ok("Authorzied!");
     }
     
 }
