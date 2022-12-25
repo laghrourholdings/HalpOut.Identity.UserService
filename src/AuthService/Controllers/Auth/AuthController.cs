@@ -48,15 +48,12 @@ public class AuthController : ControllerBase
         if (result.Succeeded)
         {
             var user = await _userManager.FindByNameAsync(username);
-            _loggingService.InformationToLogService($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
-            if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
-            {
-                Console.WriteLine(token);
-                await _userManager.AddLoginAsync(user, new UserLoginInfo("AuthService", token, user.Id));
-            }
+            if(user.LogHandleId == Guid.Empty)
+                await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
+            _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
             return Ok();
         }
-        _loggingService.Log().Information("Logging failed for {username}, with device: {UserAgent}",username, _context.HttpContext.Request.Headers.UserAgent);
+        _loggingService.Information($"Logging failed for {username}");
         return BadRequest();
     }
     [AllowAnonymous]
@@ -91,7 +88,8 @@ public class AuthController : ControllerBase
             var r = await _userManager.AddToRoleAsync(createdUser, adminRole.Name);
             if (!r.Succeeded)
             { 
-                _loggingService.Log().Error("Can't assign user to role {role}, error: {error}", adminRole.Name, r.Errors);
+                _loggingService.Error($"Can't assign user to role {adminRole.Name}, error: {JsonSerializer.Serialize(r.Errors)}",
+                    createdUser.LogHandleId);
             }
         }
         await _userSignInManager.SignInAsync(createdUser,true);

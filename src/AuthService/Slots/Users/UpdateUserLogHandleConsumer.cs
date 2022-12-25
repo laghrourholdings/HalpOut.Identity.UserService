@@ -33,13 +33,13 @@ public class UpdateUserLogHandleConsumer : IConsumer<UpdateUserLogHandle>
         var user = _userManager.Users.SingleOrDefault(x => x.Id == context.Message.UserId.ToString());
         if (user == null)
         {
-            _loggingService.ErrorToLogService($"User {userId} not found, can not update", logHandleId);
+            _loggingService.Error($"User {userId} not found, can not update", logHandleId);
             return;
         }
         user.LogHandleId = logHandleId;
         var updateResult = await _userManager.UpdateAsync(user);
         if(updateResult.Succeeded)
             return;
-        _loggingService.ErrorToLogService($"Can not assign logHandleId {logHandleId} to user {userId}", logHandleId);
+        _loggingService.Error($"Can not assign logHandleId {logHandleId} to user {userId}", logHandleId);
     }
 }

@@ -38,20 +38,18 @@ public class AuthUserManager : UserManager<User>
         User user,
         string password)
     {
-        _logger.Information("Creating user {@user}", user);
         var response = await base.CreateAsync(user, password);
         if (response.Succeeded)
         {
-            //_loggingService.InformationToLogService("user", user.LogHandleId);
+            
         }
-
         return response;
     }
 
     public override Task<IdentityResult> UpdateAsync(
         User user)
     {
-        _loggingService.InformationToLogService($"Updated user {user.Id}", user.LogHandleId);
+        _loggingService.Verbose($"User updated", user.LogHandleId);
         return base.UpdateAsync(user);
     }
 }
