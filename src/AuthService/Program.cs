@@ -1,14 +1,10 @@
 using AuthService.EFCore;
-using AuthService.Identity;
-using AuthService.Identity;
 using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
 using AuthService.Identity.Stores;
 using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.AspNetCore.Logging;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Redis;
 using Serilog;

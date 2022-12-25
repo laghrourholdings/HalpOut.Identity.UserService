@@ -1,10 +1,8 @@
 ﻿using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
-using ILogger = Serilog.ILogger;
 
 namespace AuthService.Slots.Users;
 

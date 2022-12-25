@@ -1,19 +1,12 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using AuthService.EFCore;
-using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Utilities;
-using MassTransit;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
-using ILogger = Serilog.ILogger;
 
 namespace AuthService.Identity.Stores;
 

@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using CommonLibrary.AspNetCore.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
