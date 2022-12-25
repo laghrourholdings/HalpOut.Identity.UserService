@@ -28,6 +28,8 @@
     </ItemGroup>
     
     <ItemGroup>
+      <Folder Include="Controllers\Auth\Employee" />
+      <Folder Include="Controllers\Auth\User" />
       <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Implementations" />
       <Folder Include="Middleware" />

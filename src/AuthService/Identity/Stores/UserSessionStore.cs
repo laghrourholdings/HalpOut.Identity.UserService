@@ -1,8 +1,11 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using AuthService.EFCore;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.Utilities;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -49,20 +52,18 @@ public class UserSessionStore : ITicketStore
         {
             options.SetAbsoluteExpiration(expiresUtc.Value);
         }
-        byte[] val = SerializeToBytes(ticket);
         using (var scope = _services.BuildServiceProvider().CreateScope())
         {
             var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
             if (authDbContext != null)
             {
-                var user = await authDbContext.Users.Include(x=>x.UserSessions).Include(x=>x.UserDevices).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+                var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
                 //var loggingService = scope.ServiceProvider.GetService<ILoggingService>();
                 if (user != null)
                 {
                     var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.Key == key);
                     if (session == null)
                     {
-                        var device = new UserDevice();
                         var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
                         var httpContext = httpContextAccessor?.HttpContext;
                         var newSession = new UserSession
@@ -76,37 +77,47 @@ public class UserSessionStore : ITicketStore
                         if (httpContext != null)
                         {
                             var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
-                            device.CreationDate = DateTimeOffset.Now;
-
-                            if (remoteIpAddress != null)
-                            {
-                                device.IpAddress = remoteIpAddress.ToString();
-                            }
                             var userAgent = httpContext.Request.Headers["User-Agent"];
-                            device.UserAgent = userAgent;
                             if (!string.IsNullOrEmpty(userAgent))
                             {
-                                var uaParser = UAParser.Parser.GetDefault();
-                                var clientInfo = uaParser.Parse(userAgent);
-                                device.DeviceOs = clientInfo.OS.ToString();
-                                device.DeviceType = clientInfo.UserAgent.Family;
-                                device.DeviceName = clientInfo.Device.Model;
-                                device.DeviceModel =
-                                    $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}";
+                                var deviceHash = Hashing.GenerateMD5Hash($"{userAgent}.{remoteIpAddress}.{user.Id}");
+                                var currentDevice = authDbContext.UserDevices.FirstOrDefault(x=>x.Hash == deviceHash);
+                                if (currentDevice != null)
+                                {
+                                    newSession.Device = currentDevice;
+                                }
+                                else
+                                {
+                                    var device = new UserDevice();
+                                    var uaParser = UAParser.Parser.GetDefault();
+                                    Console.WriteLine(uaParser.ToString());
+                                    var clientInfo = uaParser.Parse(userAgent);
+                                    device.CreationDate = DateTimeOffset.Now;
+                                    if (remoteIpAddress != null)
+                                    {
+                                        device.IpAddress = remoteIpAddress.ToString();
+                                    }
+                                    device.UserAgent = userAgent;
+                                    device.DeviceOs = clientInfo.OS.ToString();
+                                    device.DeviceType = clientInfo.UserAgent.Family;
+                                    device.DeviceName = clientInfo.Device.Model;
+                                    device.DeviceModel =
+                                        $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}";
+                                    device.Hash = deviceHash;
+                                    newSession.Device = device;
+                                }
                             }
-
-                            newSession.Device = device;
                         }
-
                         user.UserSessions.Add(newSession);
                         await authDbContext.SaveChangesAsync();
+                        byte[] val = SerializeToBytes(ticket);
+                        await _cache.SetAsync(key, val, options);
                         //loggingService.InformationToBusLog($"New session issued {newSession.Id}", user.LogHandleId);
                     }
                     else if (session.IsDeleted)
                     {
                         await RemoveAsync(key);
                         //loggingService.InformationToBusLog($"Processing session deletion, removing from cache... {session.Id}", user.LogHandleId);
-                        return;
                     }
                     else
                     {
@@ -114,15 +125,17 @@ public class UserSessionStore : ITicketStore
                         {
                             session.ExpirationDate = (expiresUtc.Value);
                         }
+                        byte[] val = SerializeToBytes(ticket);
+                        await _cache.SetAsync(key, val, options);
                         session.RawAuthenticationTicket = val;
                         //loggingService.InformationToBusLog( $"Patching session {session.Id}", user.LogHandleId);
                         await authDbContext.SaveChangesAsync();
                     }
-                    await _cache.SetAsync(key, val, options);
                 }
             }else
             {
                 //logger?.ErrorToBusLog(config, $"CRITICAL: DATABASE UNREACHEABLE AT USERSESSIONSTORE", user.LogHandleId, publishEnpoint);
+                byte[] val = SerializeToBytes(ticket);
                 await _cache.SetAsync(key, val, options);
             }
         }
@@ -145,13 +158,8 @@ public class UserSessionStore : ITicketStore
                     var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
                     if (userSession != null)
                     {
-                        if(userSession.IsDeleted)
-                        {
-                            await RemoveAsync(key);
-                            context.UserSessions.Remove(userSession);
-                            await context.SaveChangesAsync();
-                            return null;
-                        }
+                        context.UserSessions.Remove(userSession);
+                        await context.SaveChangesAsync();
                     }
                 }
                 else
@@ -190,7 +198,7 @@ public class UserSessionStore : ITicketStore
     {
         return TicketSerializer.Default.Serialize(source);
     }
-
+    
     private static AuthenticationTicket DeserializeFromBytes(byte[] source)
     {
         return source == null ? null : TicketSerializer.Default.Deserialize(source);

@@ -4,13 +4,11 @@ using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
-using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using ILogger = Serilog.ILogger;
 
 namespace AuthService.Controllers.Auth;
 
@@ -75,36 +73,46 @@ public class AuthController : ControllerBase
             LogHandleId =  Guid.Empty
         };       
         var result = await _userManager.CreateAsync(user, password);
-        if (result.Succeeded)
-        {
-            var createdUser = await _userManager.FindByNameAsync(user.UserName);
-            await _publishEndpoint.Publish(new UserCreated(new Guid(createdUser.Id)));
-            var roleExist = await _roleManager.RoleExistsAsync("Administrator");
-            if (!roleExist)
-            { 
-                await _roleManager.CreateAsync(new IdentityRole("Administrator"));
-            }
-            await _userManager.AddToRoleAsync(createdUser, "Administrator");
-            await _userSignInManager.SignInAsync(createdUser,true);
-            return Ok();
-        }
+        if (!result.Succeeded) return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
         
-        return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
+        var createdUser = await _userManager.FindByNameAsync(user.UserName);
+        await _publishEndpoint.Publish(new UserCreated(new Guid(createdUser.Id)));
+        
+        var adminRole = await _roleManager.FindByNameAsync("Admin");
+        if (adminRole == null)
+        { 
+            adminRole = new IdentityRole("Admin");
+            await _roleManager.CreateAsync(adminRole);
+            await _roleManager.AddClaimAsync(adminRole, 
+                new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "AuthService"));
+        }
+        if (!await _userManager.IsInRoleAsync(createdUser, adminRole.Name))
+        {
+            var r = await _userManager.AddToRoleAsync(createdUser, adminRole.Name);
+            if (!r.Succeeded)
+            { 
+                _loggingService.Log().Error("Can't assign user to role {role}, error: {error}", adminRole.Name, r.Errors);
+            }
+        }
+        await _userSignInManager.SignInAsync(createdUser,true);
+        return Ok();
     }
 
     [HttpGet]
     [Authorize(Policy = Policies.ELEVATED_RIGHTS)]
     public async Task<IActionResult> Get()
     {
-        if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
-        {
-            Console.WriteLine(token);
-            //await _userManager.
-        }
-        User? user = _userManager.FindByNameAsync(_context.HttpContext?.User.Identity?.Name ?? string.Empty).Result;
-        //_userManager.AddLoginAsync(user, new UserLoginInfo("AuthService"));
-        _loggingService.Log().Information("User logged with privileges: {user}", user);
-        return Ok("Authorzied!");
+        // if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
+        // {
+        //     Console.WriteLine(token);
+        // }
+        // var user = await _userManager.AddClaimAsync(
+        //     await _userManager.GetUserAsync(HttpContext.User),
+        //     new Claim("usern2ame", "test", ClaimValueTypes.String, "AuthService"));
+        // _loggingService.Log().Information("{UserClaims}", await _userManager.GetClaimsAsync(await _userManager.GetUserAsync(HttpContext.User)));
+        
+       
+        return Ok($"Authorzied: {await _userManager.GetUserAsync(HttpContext.User)}");
     }
     
 }

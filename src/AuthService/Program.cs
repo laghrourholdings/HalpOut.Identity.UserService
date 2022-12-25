@@ -52,6 +52,7 @@ builder.Services.AddDbContext<UserDbContext>();
 //builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.Name = "Identity.User";
     options.ExpireTimeSpan = TimeSpan.FromDays(14);
     options.SlidingExpiration = true;
     options.SessionStore = new UserSessionStore(new RedisCacheOptions
