@@ -1,10 +1,10 @@
-﻿using CommonLibrary.AspNetCore.Contracts.Users;
-using CommonLibrary.AspNetCore.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
+using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
 
-namespace AuthService.Slots.Users;
+namespace AuthService.ServiceBus.Consumer_Contracts.Users;
 
 public class UpdateUserLogHandleConsumer : IConsumer<UpdateUserLogHandle>
 {

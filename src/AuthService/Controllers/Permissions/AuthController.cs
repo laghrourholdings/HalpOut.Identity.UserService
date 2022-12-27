@@ -1,16 +1,16 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
 using AuthService.Identity.Managers;
-using CommonLibrary.AspNetCore.Contracts.Users;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Model;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
+using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AuthService.Controllers.Auth;
+namespace AuthService.Controllers.Permissions;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
@@ -18,7 +18,7 @@ namespace AuthService.Controllers.Auth;
 public class AuthController : ControllerBase
 {
     private readonly IHttpContextAccessor _context;
-    public readonly UserSignInManager _userSignInManager;
+    private readonly UserSignInManager _userSignInManager;
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ILoggingService _loggingService;
@@ -63,8 +63,10 @@ public class AuthController : ControllerBase
         string email,
         string password)
     {
+        var generatedId = Guid.NewGuid().ToString();
         var user = new User
         {
+            Id = generatedId,
             UserName = username,
             Email = email,
             LogHandleId =  Guid.Empty
@@ -72,9 +74,9 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, password);
         if (!result.Succeeded) return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
         
-        var createdUser = await _userManager.FindByNameAsync(user.UserName);
-        await _publishEndpoint.Publish(new UserCreated(new Guid(createdUser.Id)));
+        await _publishEndpoint.Publish(new UserCreated(new Guid(generatedId)));
         
+        //Temporary
         var adminRole = await _roleManager.FindByNameAsync("Admin");
         if (adminRole == null)
         { 
@@ -83,16 +85,16 @@ public class AuthController : ControllerBase
             await _roleManager.AddClaimAsync(adminRole, 
                 new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "AuthService"));
         }
-        if (!await _userManager.IsInRoleAsync(createdUser, adminRole.Name))
+        if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {
-            var r = await _userManager.AddToRoleAsync(createdUser, adminRole.Name);
+            var r = await _userManager.AddToRoleAsync(user, adminRole.Name);
             if (!r.Succeeded)
             { 
                 _loggingService.Error($"Can't assign user to role {adminRole.Name}, error: {JsonSerializer.Serialize(r.Errors)}",
-                    createdUser.LogHandleId);
+                    user.LogHandleId);
             }
         }
-        await _userSignInManager.SignInAsync(createdUser,true);
+        await _userSignInManager.SignInAsync(user,true);
         return Ok();
     }
 

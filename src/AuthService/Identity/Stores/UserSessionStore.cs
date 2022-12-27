@@ -51,7 +51,6 @@ public class UserSessionStore : ITicketStore
             if (authDbContext != null)
             {
                 var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
-                //var loggingService = scope.ServiceProvider.GetService<ILoggingService>();
                 if (user != null)
                 {
                     var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.Key == key);
@@ -90,6 +89,7 @@ public class UserSessionStore : ITicketStore
                                     {
                                         device.IpAddress = remoteIpAddress.ToString();
                                     }
+
                                     device.UserAgent = userAgent;
                                     device.DeviceOs = clientInfo.OS.ToString();
                                     device.DeviceType = clientInfo.UserAgent.Family;
@@ -105,12 +105,10 @@ public class UserSessionStore : ITicketStore
                         await authDbContext.SaveChangesAsync();
                         byte[] val = SerializeToBytes(ticket);
                         await _cache.SetAsync(key, val, options);
-                        //loggingService.InformationToBusLog($"New session issued {newSession.Id}", user.LogHandleId);
                     }
                     else if (session.IsDeleted)
                     {
                         await RemoveAsync(key);
-                        //loggingService.InformationToBusLog($"Processing session deletion, removing from cache... {session.Id}", user.LogHandleId);
                     }
                     else
                     {
@@ -121,13 +119,11 @@ public class UserSessionStore : ITicketStore
                         byte[] val = SerializeToBytes(ticket);
                         await _cache.SetAsync(key, val, options);
                         session.RawAuthenticationTicket = val;
-                        //loggingService.InformationToBusLog( $"Patching session {session.Id}", user.LogHandleId);
                         await authDbContext.SaveChangesAsync();
                     }
                 }
             }else
             {
-                //logger?.ErrorToBusLog(config, $"CRITICAL: DATABASE UNREACHEABLE AT USERSESSIONSTORE", user.LogHandleId, publishEnpoint);
                 byte[] val = SerializeToBytes(ticket);
                 await _cache.SetAsync(key, val, options);
             }
