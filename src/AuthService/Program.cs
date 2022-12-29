@@ -3,7 +3,7 @@ using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
 using AuthService.Identity.Stores;
 using CommonLibrary.AspNetCore;
-using CommonLibrary.AspNetCore.Identity.Model;
+using CommonLibrary.AspNetCore.Identity.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Redis;

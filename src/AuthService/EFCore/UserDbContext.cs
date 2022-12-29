@@ -1,4 +1,4 @@
-﻿using CommonLibrary.AspNetCore.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Settings;
 using CommonLibrary.ModelBuilders;
 using Microsoft.AspNetCore.Identity;

@@ -2,9 +2,10 @@
 using System.Text.Json;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
-using CommonLibrary.AspNetCore.Identity.Model;
+using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
+using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -40,20 +41,19 @@ public class AuthController : ControllerBase
     }
     
     [HttpPost("login")]
-    public async Task<IActionResult> Login(
-        string username, 
-        string password)
+    public async Task<IActionResult> Login([FromBody] UserCredentials userCredentials)
     {
-        var result = await _userSignInManager.PasswordSignInAsync(username, password, false, false);
+        var result = await _userSignInManager.PasswordSignInAsync(userCredentials.Username, userCredentials.Password, false, false);
         if (result.Succeeded)
         {
-            var user = await _userManager.FindByNameAsync(username);
+            var user = await _userManager.FindByNameAsync(userCredentials.Username);
             if(user.LogHandleId == Guid.Empty)
                 await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
             _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
-            return Ok();
+            var claims =  _context.HttpContext.User.Claims.Select(c => new Claim(c.Type,c.Value,c.ValueType));
+            return Ok(claims);
         }
-        _loggingService.Information($"Logging failed for {username}");
+        _loggingService.Information($"Logging failed for {userCredentials.Username}");
         return BadRequest();
     }
     [AllowAnonymous]
@@ -84,6 +84,8 @@ public class AuthController : ControllerBase
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
                 new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "AuthService"));
+            await _roleManager.AddClaimAsync(adminRole, 
+                new Claim(UserClaimTypes.Previlege, "projects.read", ClaimValueTypes.String, "AuthService"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

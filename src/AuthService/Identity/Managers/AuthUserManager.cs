@@ -1,4 +1,4 @@
-﻿using CommonLibrary.AspNetCore.Identity.Model;
+﻿using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
