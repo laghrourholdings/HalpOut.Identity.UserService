@@ -11,8 +11,10 @@
 
     <ItemGroup>
         <PackageReference Include="AutoMapper" Version="12.0.0" />
+        <PackageReference Include="JWT" Version="9.0.3" />
         <PackageReference Include="LH.ForYou.CommonLibrary.AspNetCore" Version="1.0.4" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.2.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.12" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.11" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.11">
           <PrivateAssets>all</PrivateAssets>
@@ -31,7 +33,6 @@
       <Folder Include="Controllers\Permissions\Employee" />
       <Folder Include="Controllers\Permissions\User" />
       <Folder Include="Identity\Authorization\Requirements" />
-      <Folder Include="Middleware" />
       <Folder Include="Migrations" />
       <Folder Include="ServiceBus\Consumer Contracts" />
     </ItemGroup>

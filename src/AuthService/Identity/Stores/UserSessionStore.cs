@@ -1,7 +1,15 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using AuthService.EFCore;
 using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.Utilities;
+using Flurl.Util;
+using JWT;
+using JWT.Algorithms;
+using JWT.Builder;
+using JWT.Exceptions;
+using JWT.Serializers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -53,18 +61,16 @@ public class UserSessionStore : ITicketStore
                 var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
                 if (user != null)
                 {
-                    var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.Key == key);
-                    if (session == null)
+                    var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
+                    var httpContext = httpContextAccessor?.HttpContext;
+                    var _session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
+                    if (_session == null)
                     {
-                        var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
-                        var httpContext = httpContextAccessor?.HttpContext;
                         var newSession = new UserSession
                         {
                             CreationDate = DateTimeOffset.Now,
                             ExpirationDate = ticket.Properties.ExpiresUtc,
-                            Key = key,
-                            RawAuthenticationTicket = SerializeToBytes(ticket),
-                            Descriptor = "Issued by UserSessionStore",
+                            CacheKey = key
                         };
                         if (httpContext != null)
                         {
@@ -89,7 +95,7 @@ public class UserSessionStore : ITicketStore
                                     {
                                         device.IpAddress = remoteIpAddress.ToString();
                                     }
-
+   
                                     device.UserAgent = userAgent;
                                     device.DeviceOs = clientInfo.OS.ToString();
                                     device.DeviceType = clientInfo.UserAgent.Family;
@@ -103,10 +109,67 @@ public class UserSessionStore : ITicketStore
                         }
                         user.UserSessions.Add(newSession);
                         await authDbContext.SaveChangesAsync();
+                        var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
+                        if (session != null)
+                        {
+                            
+                            var rsa = RSA.Create();
+                            Console.WriteLine(ASCIIEncoding.UTF8.GetString(rsa.ExportRSAPrivateKey()));
+                            Console.WriteLine("PUBLIC:");
+                            Console.WriteLine(ASCIIEncoding.UTF8.GetString(rsa.ExportRSAPublicKey()));
+                            Console.WriteLine("PUBLIC:");
+                            var token = JwtBuilder.Create()
+                                .WithAlgorithm(new RS256Algorithm(rsa,rsa))
+                                .AddClaim("exp", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds())
+                                .AddClaim("Session",session.Id.ToString())
+                                .AddClaims(ticket.Principal.Claims.Select(x=>new KeyValuePair<string, object>(x.Type, x.Value)))
+                                .WithSecret("secret")
+                                .Encode();
+                            httpContext.Response.Cookies.Append("Identity.Token",
+                                token, new CookieOptions
+                                {
+                                    Expires = DateTimeOffset.UtcNow.AddHours(1),
+                                    HttpOnly = true
+                                });
+                            session.Token = token;
+                            session.PrivateKey = rsa.ExportRSAPrivateKey();
+                            session.PublicKey = rsa.ExportRSAPublicKey();
+                            
+                            var rsa2 = RSA.Create();
+                            //rsa2.ImportRSAPrivateKey(rsa.ExportRSAPrivateKey(), out _);
+                            //rsa2.ImportRSAPublicKey(rsa.ExportRSAPublicKey(), out _);
+                            try
+                            {
+                                IJsonSerializer serializer = new JsonNetSerializer();
+                                IDateTimeProvider provider = new UtcDateTimeProvider();
+                                IJwtValidator validator = new JwtValidator(serializer, provider);
+                                IBase64UrlEncoder urlEncoder = new JwtBase64UrlEncoder();
+                                IJwtAlgorithm algorithm = new RS256Algorithm(rsa2);
+                                IJwtDecoder decoder = new JwtDecoder(serializer, validator, urlEncoder, algorithm);
+    
+                                var json = decoder.Decode(token);
+                                Console.WriteLine(json);
+                            }
+                            catch (TokenNotYetValidException)
+                            {
+                                Console.WriteLine("Token is not valid yet");
+                            }
+                            catch (TokenExpiredException)
+                            {
+                                Console.WriteLine("Token has expired");
+                            }
+                            catch (SignatureVerificationException)
+                            {
+                                Console.WriteLine("Token has invalid signature");
+                            }
+                            
+                            
+                            await authDbContext.SaveChangesAsync();
+                        }
                         byte[] val = SerializeToBytes(ticket);
                         await _cache.SetAsync(key, val, options);
                     }
-                    else if (session.IsDeleted)
+                    else if (_session.IsDeleted)
                     {
                         await RemoveAsync(key);
                     }
@@ -114,11 +177,10 @@ public class UserSessionStore : ITicketStore
                     {
                         if (expiresUtc.HasValue)
                         {
-                            session.ExpirationDate = (expiresUtc.Value);
+                            _session.ExpirationDate = (expiresUtc.Value);
                         }
                         byte[] val = SerializeToBytes(ticket);
                         await _cache.SetAsync(key, val, options);
-                        session.RawAuthenticationTicket = val;
                         await authDbContext.SaveChangesAsync();
                     }
                 }
@@ -144,7 +206,7 @@ public class UserSessionStore : ITicketStore
                 var context = scope.ServiceProvider.GetService<UserDbContext>();
                 if (context != null)
                 {
-                    var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
+                    var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.CacheKey == key);
                     if (userSession != null)
                     {
                         context.UserSessions.Remove(userSession);
@@ -169,7 +231,7 @@ public class UserSessionStore : ITicketStore
             var context = scope.ServiceProvider.GetService<UserDbContext>();
             if (context != null)
             {
-                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.Key == key);
+                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.CacheKey == key);
                 if (userSession != null)
                 {
                     context.UserSessions.Remove(userSession);

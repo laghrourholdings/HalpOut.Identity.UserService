@@ -41,19 +41,21 @@ public class AuthController : ControllerBase
     }
     
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] UserCredentials userCredentials)
+    public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
     {
-        var result = await _userSignInManager.PasswordSignInAsync(userCredentials.Username, userCredentials.Password, false, false);
+        //var userCredentials = JsonSerializer.Deserialize<UserCredentials>(jsonRaw);
+        
+        var result = await _userSignInManager.PasswordSignInAsync(userCredentialsDto.Username, userCredentialsDto.Password, false, false);
         if (result.Succeeded)
         {
-            var user = await _userManager.FindByNameAsync(userCredentials.Username);
+            var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
             if(user.LogHandleId == Guid.Empty)
                 await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
             _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
             var claims =  _context.HttpContext.User.Claims.Select(c => new Claim(c.Type,c.Value,c.ValueType));
             return Ok(claims);
         }
-        _loggingService.Information($"Logging failed for {userCredentials.Username}");
+        _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
     }
     [AllowAnonymous]
@@ -100,20 +102,12 @@ public class AuthController : ControllerBase
         return Ok();
     }
 
-    [HttpGet]
-    [Authorize(Policy = Policies.ELEVATED_RIGHTS)]
+    [HttpGet("refresh")]
+    [Authorize(Policy = Policies.AUTHENTICATED)]
     public async Task<IActionResult> Get()
     {
-        // if (_context.HttpContext != null && _context.HttpContext.Request.Cookies.TryGetValue(".AspNetCore.Identity.Application", out var token))
-        // {
-        //     Console.WriteLine(token);
-        // }
-        // var user = await _userManager.AddClaimAsync(
-        //     await _userManager.GetUserAsync(HttpContext.User),
-        //     new Claim("usern2ame", "test", ClaimValueTypes.String, "AuthService"));
-        // _loggingService.Log().Information("{UserClaims}", await _userManager.GetClaimsAsync(await _userManager.GetUserAsync(HttpContext.User)));
+        await _userManager.FindByIdAsync(_context.HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
         
-       
         return Ok($"Authorzied: {await _userManager.GetUserAsync(HttpContext.User)}");
     }
     
