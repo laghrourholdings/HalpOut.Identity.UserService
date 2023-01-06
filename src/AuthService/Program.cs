@@ -5,7 +5,6 @@ using AuthService.Identity.Stores;
 using AuthService.Middleware;
 using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Identity.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Redis;

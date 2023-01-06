@@ -1,22 +1,13 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using AuthService.EFCore;
 using CommonLibrary.AspNetCore.Identity.Helpers;
 using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.Utilities;
-using Flurl.Util;
-using JWT;
-using JWT.Algorithms;
-using JWT.Builder;
-using JWT.Exceptions;
-using JWT.Serializers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
-using Paseto;
 
 namespace AuthService.Identity.Stores;
 

@@ -11,7 +11,6 @@ using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Paseto.Builder;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -49,6 +48,7 @@ public class AuthController : ControllerBase
         
         var result = await _userSignInManager.PasswordSignInAsync(userCredentialsDto.Username, userCredentialsDto.Password, false, false);
         var token = Response.Headers.SetCookie.SingleOrDefault(x=>x.StartsWith("Identity.Token"));
+        token = token.Remove(0, "Identity.Token=".Length);
         if (result.Succeeded)
         {
             var verificationResult = PSec.VerifyTokenSignature(token, PSec.DebugSymmetryKey);
