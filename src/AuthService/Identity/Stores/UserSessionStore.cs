@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using AuthService.EFCore;
+using CommonLibrary.AspNetCore.Identity.Helpers;
 using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.Utilities;
 using Flurl.Util;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
+using Paseto;
 
 namespace AuthService.Identity.Stores;
 
@@ -56,13 +58,13 @@ public class UserSessionStore : ITicketStore
         using (var scope = _services.BuildServiceProvider().CreateScope())
         {
             var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
-            if (authDbContext != null)
+            var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
+            var httpContext = httpContextAccessor?.HttpContext;
+            if (authDbContext != null && httpContext != null)
             {
                 var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
                 if (user != null)
                 {
-                    var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
-                    var httpContext = httpContextAccessor?.HttpContext;
                     var _session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
                     if (_session == null)
                     {
@@ -72,98 +74,65 @@ public class UserSessionStore : ITicketStore
                             ExpirationDate = ticket.Properties.ExpiresUtc,
                             CacheKey = key
                         };
-                        if (httpContext != null)
+                        var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
+                        var userAgent = httpContext.Request.Headers["User-Agent"];
+                        if (!string.IsNullOrEmpty(userAgent))
                         {
-                            var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
-                            var userAgent = httpContext.Request.Headers["User-Agent"];
-                            if (!string.IsNullOrEmpty(userAgent))
+                            var deviceHash = Hashing.GenerateMD5Hash($"{userAgent}.{remoteIpAddress}.{user.Id}");
+                            var currentDevice = authDbContext.UserDevices.FirstOrDefault(x=>x.Hash == deviceHash);
+                            if (currentDevice != null)
                             {
-                                var deviceHash = Hashing.GenerateMD5Hash($"{userAgent}.{remoteIpAddress}.{user.Id}");
-                                var currentDevice = authDbContext.UserDevices.FirstOrDefault(x=>x.Hash == deviceHash);
-                                if (currentDevice != null)
+                                newSession.Device = currentDevice;
+                            }
+                            else
+                            {
+                                
+                                var uaParser = UAParser.Parser.GetDefault();
+                                Console.WriteLine(uaParser.ToString());
+                                var clientInfo = uaParser.Parse(userAgent);
+                                var device = new UserDevice
                                 {
-                                    newSession.Device = currentDevice;
-                                }
-                                else
-                                {
-                                    var device = new UserDevice();
-                                    var uaParser = UAParser.Parser.GetDefault();
-                                    Console.WriteLine(uaParser.ToString());
-                                    var clientInfo = uaParser.Parse(userAgent);
-                                    device.CreationDate = DateTimeOffset.Now;
-                                    if (remoteIpAddress != null)
-                                    {
-                                        device.IpAddress = remoteIpAddress.ToString();
-                                    }
-   
-                                    device.UserAgent = userAgent;
-                                    device.DeviceOs = clientInfo.OS.ToString();
-                                    device.DeviceType = clientInfo.UserAgent.Family;
-                                    device.DeviceName = clientInfo.Device.Model;
-                                    device.DeviceModel =
-                                        $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}";
-                                    device.Hash = deviceHash;
-                                    newSession.Device = device;
-                                }
+                                    Id = default,
+                                    CreationDate = DateTimeOffset.Now,
+                                    Descriptor = null,
+                                    IpAddress = remoteIpAddress?.ToString(),
+                                    UserAgent = userAgent,
+                                    DeviceName = clientInfo.Device.Model,
+                                    DeviceType = clientInfo.UserAgent.Family,
+                                    DeviceModel = $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}",
+                                    DeviceOs = clientInfo.OS.ToString(),
+                                    Hash = deviceHash,
+                                    IsSuspended = false,
+                                    SuspendedDate = default,
+                                    SuspendedBy = default,
+                                    IsDeleted = false,
+                                    DeletedDate = default,
+                                    DeletedBy = default
+                                };
+                                newSession.Device = device;
                             }
                         }
                         user.UserSessions.Add(newSession);
                         await authDbContext.SaveChangesAsync();
-                        var session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
+                        var session = authDbContext.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
                         if (session != null)
                         {
-                            
-                            var rsa = RSA.Create();
-                            Console.WriteLine(ASCIIEncoding.UTF8.GetString(rsa.ExportRSAPrivateKey()));
-                            Console.WriteLine("PUBLIC:");
-                            Console.WriteLine(ASCIIEncoding.UTF8.GetString(rsa.ExportRSAPublicKey()));
-                            Console.WriteLine("PUBLIC:");
-                            var token = JwtBuilder.Create()
-                                .WithAlgorithm(new RS256Algorithm(rsa,rsa))
-                                .AddClaim("exp", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds())
-                                .AddClaim("Session",session.Id.ToString())
-                                .AddClaims(ticket.Principal.Claims.Select(x=>new KeyValuePair<string, object>(x.Type, x.Value)))
-                                .WithSecret("secret")
-                                .Encode();
+                            var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
+                            var publicKey = asymmetricKey.PublicKey.Key.ToArray();
+                            var privateKey = asymmetricKey.SecretKey.Key.ToArray();
+                            session.PublicKey = publicKey;
+                            session.PrivateKey = privateKey;
+                            var tokenBuilder = PSec.CreateTokenPipe("auth.laghrour.com","laghrour.com",DateTime.UtcNow.AddMinutes(5));
+                            foreach (var principalClaim in ticket.Principal.Claims)
+                            {
+                                tokenBuilder.AddClaim(principalClaim.Type, principalClaim.Value);
+                            }
+                            var token = tokenBuilder.Sign(publicKey, privateKey, PSec.DebugSymmetryKey, session.Id.ToString(), expiresUtc.Value.DateTime);
                             httpContext.Response.Cookies.Append("Identity.Token",
                                 token, new CookieOptions
                                 {
-                                    Expires = DateTimeOffset.UtcNow.AddHours(1),
-                                    HttpOnly = true
+                                    Expires = DateTimeOffset.UtcNow.AddMinutes(5)
                                 });
-                            session.Token = token;
-                            session.PrivateKey = rsa.ExportRSAPrivateKey();
-                            session.PublicKey = rsa.ExportRSAPublicKey();
-                            
-                            var rsa2 = RSA.Create();
-                            //rsa2.ImportRSAPrivateKey(rsa.ExportRSAPrivateKey(), out _);
-                            //rsa2.ImportRSAPublicKey(rsa.ExportRSAPublicKey(), out _);
-                            try
-                            {
-                                IJsonSerializer serializer = new JsonNetSerializer();
-                                IDateTimeProvider provider = new UtcDateTimeProvider();
-                                IJwtValidator validator = new JwtValidator(serializer, provider);
-                                IBase64UrlEncoder urlEncoder = new JwtBase64UrlEncoder();
-                                IJwtAlgorithm algorithm = new RS256Algorithm(rsa2);
-                                IJwtDecoder decoder = new JwtDecoder(serializer, validator, urlEncoder, algorithm);
-    
-                                var json = decoder.Decode(token);
-                                Console.WriteLine(json);
-                            }
-                            catch (TokenNotYetValidException)
-                            {
-                                Console.WriteLine("Token is not valid yet");
-                            }
-                            catch (TokenExpiredException)
-                            {
-                                Console.WriteLine("Token has expired");
-                            }
-                            catch (SignatureVerificationException)
-                            {
-                                Console.WriteLine("Token has invalid signature");
-                            }
-                            
-                            
                             await authDbContext.SaveChangesAsync();
                         }
                         byte[] val = SerializeToBytes(ticket);
@@ -186,6 +155,7 @@ public class UserSessionStore : ITicketStore
                 }
             }else
             {
+                throw new ApplicationException("AuthDbContext or HttpContextAccessor is null");
                 byte[] val = SerializeToBytes(ticket);
                 await _cache.SetAsync(key, val, options);
             }

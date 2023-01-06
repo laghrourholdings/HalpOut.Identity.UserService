@@ -2,6 +2,7 @@
 using System.Text.Json;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.AspNetCore.Identity.Helpers;
 using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
@@ -10,6 +11,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Paseto.Builder;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -39,21 +41,23 @@ public class AuthController : ControllerBase
         _loggingService = loggingService;
         _publishEndpoint = publishEndpoint;
     }
-    
+    //TODO add loghandleId to claims trust
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
     {
         //var userCredentials = JsonSerializer.Deserialize<UserCredentials>(jsonRaw);
         
         var result = await _userSignInManager.PasswordSignInAsync(userCredentialsDto.Username, userCredentialsDto.Password, false, false);
+        var token = Response.Headers.SetCookie.SingleOrDefault(x=>x.StartsWith("Identity.Token"));
         if (result.Succeeded)
         {
+            var verificationResult = PSec.VerifyTokenSignature(token, PSec.DebugSymmetryKey);
+            _loggingService.Local().Information("{@verificationResult}", verificationResult);
             var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
             if(user.LogHandleId == Guid.Empty)
                 await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
             _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
-            var claims =  _context.HttpContext.User.Claims.Select(c => new Claim(c.Type,c.Value,c.ValueType));
-            return Ok(claims);
+            return Ok(verificationResult.PublicKey);
         }
         _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
