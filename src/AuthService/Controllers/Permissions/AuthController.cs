@@ -11,7 +11,6 @@ using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Paseto.Builder;
 
 namespace AuthService.Controllers.Permissions;
 
