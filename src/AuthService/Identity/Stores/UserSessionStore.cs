@@ -109,16 +109,10 @@ public class UserSessionStore : ITicketStore
                         if (session != null)
                         {
                             var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
-                            var publicKey = asymmetricKey.PublicKey.Key.ToArray();
-                            var privateKey = asymmetricKey.SecretKey.Key.ToArray();
-                            session.PublicKey = publicKey;
-                            session.PrivateKey = privateKey;
-                            var tokenBuilder = PSec.CreateTokenPipe("auth.laghrour.com","laghrour.com",DateTime.UtcNow.AddMinutes(5));
-                            foreach (var principalClaim in ticket.Principal.Claims)
-                            {
-                                tokenBuilder.AddClaim(principalClaim.Type, principalClaim.Value);
-                            }
-                            var token = tokenBuilder.Sign(publicKey, privateKey, PSec.DebugSymmetryKey, session.Id.ToString(), expiresUtc.Value.DateTime);
+                            var token = Securoman.GenerateToken(asymmetricKey, ticket.Principal.Claims, session.Id.ToString());
+                            session.PublicKey = asymmetricKey.PublicKey.Key.ToArray();
+                            session.PrivateKey = asymmetricKey.SecretKey.Key.ToArray();
+                            
                             httpContext.Response.Cookies.Append("Identity.Token",
                                 token, new CookieOptions
                                 {

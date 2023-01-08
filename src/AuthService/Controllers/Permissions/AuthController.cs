@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
@@ -40,24 +41,48 @@ public class AuthController : ControllerBase
         _loggingService = loggingService;
         _publishEndpoint = publishEndpoint;
     }
+    
+    private IDictionary<string, string> GetCookieData()
+    {
+        var cookieDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var parts in Response.Headers.SetCookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
+        {
+            var cookieName = parts[0].Trim();
+            string cookieValue;
+
+            if (parts.Length == 1)
+            {
+                //Cookie attribute
+                cookieValue = string.Empty;
+            }
+            else
+            {
+                cookieValue = parts[1].Remove(parts[1].IndexOf(';'));
+            }
+
+            cookieDictionary[cookieName] = cookieValue;
+        }
+
+        return cookieDictionary;
+    }
+    
     //TODO add loghandleId to claims trust
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
     {
-        //var userCredentials = JsonSerializer.Deserialize<UserCredentials>(jsonRaw);
-        
         var result = await _userSignInManager.PasswordSignInAsync(userCredentialsDto.Username, userCredentialsDto.Password, false, false);
-        var token = Response.Headers.SetCookie.SingleOrDefault(x=>x.StartsWith("Identity.Token"));
-        token = token.Remove(0, "Identity.Token=".Length);
+        var token = GetCookieData()["Identity.Token"]; 
         if (result.Succeeded)
         {
-            var verificationResult = PSec.VerifyTokenSignature(token, PSec.DebugSymmetryKey);
+            //To fix: 
+            var verificationResult = Securoman.VerifyToken(token);
+            var payload = PSec.DecodePayload(token);
             _loggingService.Local().Information("{@verificationResult}", verificationResult);
             var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
             if(user.LogHandleId == Guid.Empty)
                 await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
             _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
-            return Ok(verificationResult.PublicKey);
+            return Ok(Encoding.UTF8.GetString(verificationResult.PublicKey));
         }
         _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
