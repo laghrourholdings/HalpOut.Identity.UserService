@@ -31,7 +31,7 @@ public class UserSessionStore : ITicketStore
         return key;
     }
     
-    // Request end
+  
     public async Task RenewAsync(string key, AuthenticationTicket ticket)
     {
         Console.WriteLine($"RenewAsync Key: {key}");
@@ -41,109 +41,107 @@ public class UserSessionStore : ITicketStore
         }
         var options = new DistributedCacheEntryOptions();
         var expiresUtc = ticket.Properties.ExpiresUtc;
-        
         if (expiresUtc.HasValue)
         {
             options.SetAbsoluteExpiration(expiresUtc.Value);
         }
-        using (var scope = _services.BuildServiceProvider().CreateScope())
+        using var scope = _services.BuildServiceProvider().CreateScope();
+        var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
+        var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
+        var httpContext = httpContextAccessor?.HttpContext;
+        if (authDbContext != null && httpContext != null)
         {
-            var authDbContext = scope.ServiceProvider.GetService<UserDbContext>();
-            var httpContextAccessor = scope.ServiceProvider.GetService<IHttpContextAccessor>();
-            var httpContext = httpContextAccessor?.HttpContext;
-            if (authDbContext != null && httpContext != null)
+            var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (user != null)
             {
-                var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
-                if (user != null)
+                var _session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
+                if (_session == null)
                 {
-                    var _session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
-                    if (_session == null)
+                    var newSession = new UserSession
                     {
-                        var newSession = new UserSession
+                        CreationDate = DateTimeOffset.Now,
+                        ExpirationDate = ticket.Properties.ExpiresUtc,
+                        CacheKey = key
+                    };
+                    var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
+                    var userAgent = httpContext.Request.Headers["User-Agent"];
+                    if (!string.IsNullOrEmpty(userAgent))
+                    {
+                        var deviceHash = Hashing.GenerateMD5Hash($"{userAgent}.{remoteIpAddress}.{user.Id}");
+                        var currentDevice = authDbContext.UserDevices.FirstOrDefault(x=>x.Hash == deviceHash);
+                        if (currentDevice != null)
                         {
-                            CreationDate = DateTimeOffset.Now,
-                            ExpirationDate = ticket.Properties.ExpiresUtc,
-                            CacheKey = key
-                        };
-                        var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
-                        var userAgent = httpContext.Request.Headers["User-Agent"];
-                        if (!string.IsNullOrEmpty(userAgent))
+                            // Device already exists, create a new one.
+                            newSession.Device = currentDevice;
+                        }
+                        else
                         {
-                            var deviceHash = Hashing.GenerateMD5Hash($"{userAgent}.{remoteIpAddress}.{user.Id}");
-                            var currentDevice = authDbContext.UserDevices.FirstOrDefault(x=>x.Hash == deviceHash);
-                            if (currentDevice != null)
-                            {
-                                newSession.Device = currentDevice;
-                            }
-                            else
-                            {
                                 
-                                var uaParser = UAParser.Parser.GetDefault();
-                                Console.WriteLine(uaParser.ToString());
-                                var clientInfo = uaParser.Parse(userAgent);
-                                var device = new UserDevice
-                                {
-                                    Id = default,
-                                    CreationDate = DateTimeOffset.Now,
-                                    Descriptor = null,
-                                    IpAddress = remoteIpAddress?.ToString(),
-                                    UserAgent = userAgent,
-                                    DeviceName = clientInfo.Device.Model,
-                                    DeviceType = clientInfo.UserAgent.Family,
-                                    DeviceModel = $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}",
-                                    DeviceOs = clientInfo.OS.ToString(),
-                                    Hash = deviceHash,
-                                    IsSuspended = false,
-                                    SuspendedDate = default,
-                                    SuspendedBy = default,
-                                    IsDeleted = false,
-                                    DeletedDate = default,
-                                    DeletedBy = default
-                                };
-                                newSession.Device = device;
-                            }
+                            var uaParser = UAParser.Parser.GetDefault();
+                            Console.WriteLine(uaParser.ToString());
+                            var clientInfo = uaParser.Parse(userAgent);
+                            var device = new UserDevice
+                            {
+                                Id = default,
+                                CreationDate = DateTimeOffset.Now,
+                                Descriptor = null,
+                                IpAddress = remoteIpAddress?.ToString(),
+                                UserAgent = userAgent,
+                                DeviceName = clientInfo.Device.Model,
+                                DeviceType = clientInfo.UserAgent.Family,
+                                DeviceModel = $"{clientInfo.UserAgent.Major}.{clientInfo.UserAgent.Minor}.{clientInfo.UserAgent.Patch}",
+                                DeviceOs = clientInfo.OS.ToString(),
+                                Hash = deviceHash,
+                                IsSuspended = false,
+                                SuspendedDate = default,
+                                SuspendedBy = default,
+                                IsDeleted = false,
+                                DeletedDate = default,
+                                DeletedBy = default
+                            };
+                            newSession.Device = device;
                         }
-                        user.UserSessions.Add(newSession);
-                        await authDbContext.SaveChangesAsync();
-                        var session = authDbContext.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
-                        if (session != null)
-                        {
-                            var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
-                            var token = Securoman.GenerateToken(asymmetricKey, ticket.Principal.Claims, session.Id.ToString());
-                            session.PublicKey = asymmetricKey.PublicKey.Key.ToArray();
-                            session.PrivateKey = asymmetricKey.SecretKey.Key.ToArray();
+                    }
+                    user.UserSessions.Add(newSession);
+                    await authDbContext.SaveChangesAsync();
+                    var session = authDbContext.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
+                    if (session != null)
+                    {
+                        var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
+                        var token = Securoman.GenerateToken(asymmetricKey, ticket.Principal.Claims, session.Id.ToString());
+                        session.PublicKey = asymmetricKey.PublicKey.Key.ToArray();
+                        session.PrivateKey = asymmetricKey.SecretKey.Key.ToArray();
                             
-                            httpContext.Response.Cookies.Append("Identity.Token",
-                                token, new CookieOptions
-                                {
-                                    Expires = DateTimeOffset.UtcNow.AddMinutes(5)
-                                });
-                            await authDbContext.SaveChangesAsync();
-                        }
-                        byte[] val = SerializeToBytes(ticket);
-                        await _cache.SetAsync(key, val, options);
-                    }
-                    else if (_session.IsDeleted)
-                    {
-                        await RemoveAsync(key);
-                    }
-                    else
-                    {
-                        if (expiresUtc.HasValue)
-                        {
-                            _session.ExpirationDate = (expiresUtc.Value);
-                        }
-                        byte[] val = SerializeToBytes(ticket);
-                        await _cache.SetAsync(key, val, options);
+                        httpContext.Response.Cookies.Append("Identity.Token",
+                            token, new CookieOptions
+                            {
+                                Expires = DateTimeOffset.UtcNow.AddMinutes(5)
+                            });
                         await authDbContext.SaveChangesAsync();
                     }
+                    byte[] val = SerializeToBytes(ticket);
+                    await _cache.SetAsync(key, val, options);
                 }
-            }else
-            {
-                throw new ApplicationException("AuthDbContext or HttpContextAccessor is null");
-                byte[] val = SerializeToBytes(ticket);
-                await _cache.SetAsync(key, val, options);
+                else if (_session.IsDeleted)
+                {
+                    // Session already exists, if it's deleted then remove the key from cache
+                    await RemoveAsync(key);
+                }
+                else
+                {
+                    // Session already exists and is alive, so just update the expiration date.
+                    if (expiresUtc.HasValue)
+                    {
+                        _session.ExpirationDate = (expiresUtc.Value);
+                        await authDbContext.SaveChangesAsync();
+                    }
+                    byte[] val = SerializeToBytes(ticket);
+                    await _cache.SetAsync(key, val, options);
+                }
             }
+        }else
+        {
+            throw new ApplicationException("AuthDbContext or HttpContextAccessor is null");
         }
     }
 
