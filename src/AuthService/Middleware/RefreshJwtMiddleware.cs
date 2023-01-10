@@ -1,4 +1,5 @@
-﻿using CommonLibrary.AspNetCore.Logging.LoggingService;
+﻿using CommonLibrary.AspNetCore.Identity.Models;
+using CommonLibrary.AspNetCore.Logging.LoggingService;
 
 namespace AuthService.Middleware;
 
@@ -17,7 +18,6 @@ public class RefreshJwtMiddleware
     {
         try
         {
-            
             await requestDelegate(context);
         }
         catch (Exception ex)

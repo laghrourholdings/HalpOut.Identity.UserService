@@ -22,7 +22,7 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 //Identity
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UserAuthorizationMiddlewareResultHandler>();
 builder.Services.AddScoped<UserManager<User>, AuthUserManager>();
-builder.Services.AddIdentity<User, IdentityRole>(options =>
+builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
     {
         //options.SignIn.RequireConfirmedAccount = true;
         //options.Password.RequiredLength = 8;
@@ -49,7 +49,7 @@ builder.Services.AddDbContext<UserDbContext>();
 //builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "Identity.User";
+    options.Cookie.Name = "Identity.Session";
     options.ExpireTimeSpan = TimeSpan.FromDays(14);
     options.SlidingExpiration = true;
     options.SessionStore = new UserSessionStore(new RedisCacheOptions

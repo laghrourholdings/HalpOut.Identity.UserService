@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AuthService.Migrations
 {
     [DbContext(typeof(UserDbContext))]
-    [Migration("20221126043837_ini3")]
-    partial class ini3
+    [Migration("20230109222635_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -24,10 +24,12 @@ namespace AuthService.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.User", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.User", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("text");
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("UserId");
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
@@ -69,17 +71,15 @@ namespace AuthService.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<byte[]>("SecretKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
-
-                    b.Property<Guid>("UserDetailId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserInterestId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
@@ -94,55 +94,10 @@ namespace AuthService.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.HasIndex("UserDetailId");
-
-                    b.HasIndex("UserInterestId");
-
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserDetail", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("BirthDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("CreationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Descriptor")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Gender")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("InterestId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Locale")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Nickname")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PictureUrl")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("SubscribedToNewsletter")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("UpdatedAt")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UserDetails");
-                });
-
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserDevice", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.UserDevice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -172,6 +127,9 @@ namespace AuthService.Migrations
                     b.Property<string>("DeviceType")
                         .HasColumnType("text");
 
+                    b.Property<string>("Hash")
+                        .HasColumnType("text");
+
                     b.Property<string>("IpAddress")
                         .HasColumnType("text");
 
@@ -190,8 +148,8 @@ namespace AuthService.Migrations
                     b.Property<string>("UserAgent")
                         .HasColumnType("text");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -200,28 +158,15 @@ namespace AuthService.Migrations
                     b.ToTable("UserDevices");
                 });
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserInterest", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.UserSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CreationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Descriptor")
+                    b.Property<string>("CacheKey")
+                        .IsRequired()
                         .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UserInterests");
-                });
-
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreationDate")
                         .HasColumnType("timestamp with time zone");
@@ -232,9 +177,6 @@ namespace AuthService.Migrations
                     b.Property<DateTimeOffset>("DeletedDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Descriptor")
-                        .HasColumnType("text");
-
                     b.Property<Guid>("DeviceId")
                         .HasColumnType("uuid");
 
@@ -244,16 +186,16 @@ namespace AuthService.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<byte[]>("RawAuthenticationTicket")
+                    b.Property<byte[]>("PrivateKey")
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -264,10 +206,11 @@ namespace AuthService.Migrations
                     b.ToTable("UserSessions");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("text");
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -287,10 +230,10 @@ namespace AuthService.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("Roles", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -304,18 +247,17 @@ namespace AuthService.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("text");
 
-                    b.Property<string>("RoleId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("RoleClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -329,18 +271,17 @@ namespace AuthService.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("text");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("UserClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
                         .HasColumnType("text");
@@ -351,36 +292,35 @@ namespace AuthService.Migrations
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("text");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("UserLogins", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("RoleId")
-                        .HasColumnType("text");
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("UserRoles", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("LoginProvider")
                         .HasColumnType("text");
@@ -393,102 +333,83 @@ namespace AuthService.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("UserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.User", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.UserDevice", b =>
                 {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.UserDetail", "UserDetail")
-                        .WithMany()
-                        .HasForeignKey("UserDetailId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.UserInterest", "UserInterest")
-                        .WithMany()
-                        .HasForeignKey("UserInterestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UserDetail");
-
-                    b.Navigation("UserInterest");
-                });
-
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserDevice", b =>
-                {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany("UserDevices")
                         .HasForeignKey("UserId");
                 });
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.UserSession", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.UserSession", b =>
                 {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.UserDevice", "Device")
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.UserDevice", "Device")
                         .WithMany()
                         .HasForeignKey("DeviceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany("UserSessions")
                         .HasForeignKey("UserId");
 
                     b.Navigation("Device");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
-                    b.HasOne("CommonLibrary.AspNetCore.Identity.Model.User", null)
+                    b.HasOne("CommonLibrary.AspNetCore.Identity.Models.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Model.User", b =>
+            modelBuilder.Entity("CommonLibrary.AspNetCore.Identity.Models.User", b =>
                 {
                     b.Navigation("UserDevices");
 

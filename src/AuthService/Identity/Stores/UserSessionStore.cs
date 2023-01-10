@@ -5,6 +5,8 @@ using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.Utilities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Session;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
@@ -51,17 +53,21 @@ public class UserSessionStore : ITicketStore
         var httpContext = httpContextAccessor?.HttpContext;
         if (authDbContext != null && httpContext != null)
         {
-            var user = await authDbContext.Users.Include(x=>x.UserSessions).SingleOrDefaultAsync(x => x.Id == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+            var user = await authDbContext.Users.Include(x=>x.UserSessions).ThenInclude(x=>x.Device).SingleOrDefaultAsync(x => x.Id.ToString() == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
             if (user != null)
             {
-                var _session = authDbContext.UserSessions.Include(x=>x.Device).SingleOrDefault(x=>x.CacheKey == key);
-                if (_session == null)
+                var existingSession = user.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
+                if (existingSession == null)
                 {
-                    var newSession = new UserSession
+                    var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
+                    var session = new UserSession
                     {
                         CreationDate = DateTimeOffset.Now,
                         ExpirationDate = ticket.Properties.ExpiresUtc,
-                        CacheKey = key
+                        CacheKey = key,
+                        PrivateKey = asymmetricKey.PublicKey.Key.ToArray(),
+                        PublicKey = asymmetricKey.SecretKey.Key.ToArray(),
+                        AuthenticationTicket = SerializeToBytes(ticket)
                     };
                     var remoteIpAddress = httpContext.Connection.RemoteIpAddress;
                     var userAgent = httpContext.Request.Headers["User-Agent"];
@@ -72,11 +78,10 @@ public class UserSessionStore : ITicketStore
                         if (currentDevice != null)
                         {
                             // Device already exists, create a new one.
-                            newSession.Device = currentDevice;
+                            session.Device = currentDevice;
                         }
                         else
                         {
-                                
                             var uaParser = UAParser.Parser.GetDefault();
                             Console.WriteLine(uaParser.ToString());
                             var clientInfo = uaParser.Parse(userAgent);
@@ -99,44 +104,44 @@ public class UserSessionStore : ITicketStore
                                 DeletedDate = default,
                                 DeletedBy = default
                             };
-                            newSession.Device = device;
+                            session.Device = device;
+                            user.UserDevices.Add(device);
                         }
                     }
-                    user.UserSessions.Add(newSession);
+                    user.UserSessions.Add(session);
                     await authDbContext.SaveChangesAsync();
-                    var session = authDbContext.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
-                    if (session != null)
-                    {
-                        var asymmetricKey = PSec.GenerateAsymmetricKeyPair();
-                        var token = Securoman.GenerateToken(asymmetricKey, ticket.Principal.Claims, session.Id.ToString());
-                        session.PublicKey = asymmetricKey.PublicKey.Key.ToArray();
-                        session.PrivateKey = asymmetricKey.SecretKey.Key.ToArray();
-                            
-                        httpContext.Response.Cookies.Append("Identity.Token",
-                            token, new CookieOptions
-                            {
-                                Expires = DateTimeOffset.UtcNow.AddMinutes(5)
-                            });
-                        await authDbContext.SaveChangesAsync();
-                    }
-                    byte[] val = SerializeToBytes(ticket);
-                    await _cache.SetAsync(key, val, options);
+                    var sessionClaim = new Claim(UserClaimTypes.UserSessionId, session.Id.ToString());
+                    ticket.Principal.AddIdentity(new ClaimsIdentity(new []{sessionClaim}));
+                    var exp = DateTimeOffset.UtcNow.AddMinutes(5);
+                    var token = Securoman.GenerateToken(
+                        asymmetricKey,
+                        ticket.Principal.Claims,
+                        user.SecretKey,
+                        session.Id, exp);
+                    httpContext.Response.Cookies.Append("Identity.Token",
+                        token, new CookieOptions
+                        {
+                            Expires = exp
+                        });
+                    byte[] ticketBytes = SerializeToBytes(ticket);
+                    await _cache.SetAsync(key, ticketBytes, options);
                 }
-                else if (_session.IsDeleted)
+                else if (existingSession.IsDeleted)
                 {
                     // Session already exists, if it's deleted then remove the key from cache
                     await RemoveAsync(key);
                 }
                 else
                 {
+                    byte[] ticketBytes = SerializeToBytes(ticket);
                     // Session already exists and is alive, so just update the expiration date.
                     if (expiresUtc.HasValue)
                     {
-                        _session.ExpirationDate = (expiresUtc.Value);
-                        await authDbContext.SaveChangesAsync();
+                        existingSession.ExpirationDate = (expiresUtc.Value);
                     }
-                    byte[] val = SerializeToBytes(ticket);
-                    await _cache.SetAsync(key, val, options);
+                    existingSession.AuthenticationTicket = ticketBytes;
+                    await authDbContext.SaveChangesAsync();
+                    await _cache.SetAsync(key, ticketBytes, options);
                 }
             }
         }else
@@ -154,25 +159,24 @@ public class UserSessionStore : ITicketStore
         bytes =  await _cache.GetAsync(key);
         if (bytes == null)
         {
-            using (var scope = _services.BuildServiceProvider().CreateScope())
+            using var scope = _services.BuildServiceProvider().CreateScope();
+            var context = scope.ServiceProvider.GetService<UserDbContext>();
+            if (context != null)
             {
-                var context = scope.ServiceProvider.GetService<UserDbContext>();
-                if (context != null)
+                var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.CacheKey == key);
+                if (userSession != null)
                 {
-                    var userSession = await context.UserSessions.SingleOrDefaultAsync(x => x.CacheKey == key);
-                    if (userSession != null)
-                    {
-                        context.UserSessions.Remove(userSession);
-                        await context.SaveChangesAsync();
-                    }
+                    context.UserSessions.Remove(userSession);
+                    await context.SaveChangesAsync();
                 }
-                else
-                {
-                    Console.WriteLine("Context is empty!");
-                }
+            }
+            else
+            {
+                Console.WriteLine("Context is empty!");
             }
         }
         ticket = DeserializeFromBytes(bytes);
+        
         return ticket;
     }
 

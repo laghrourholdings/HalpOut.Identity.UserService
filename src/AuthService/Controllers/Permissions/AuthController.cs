@@ -1,17 +1,20 @@
 ﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using AuthService.EFCore;
 using AuthService.Identity.Managers;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Helpers;
 using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
+using CommonLibrary.AspNetCore.ServiceBus.Contracts.Logging;
 using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
 using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Paseto;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -20,21 +23,22 @@ namespace AuthService.Controllers.Permissions;
 [ApiController]
 public class AuthController : ControllerBase
 {
-    private readonly IHttpContextAccessor _context;
+    private readonly UserDbContext _dbContext;
     private readonly UserSignInManager _userSignInManager;
     private readonly UserManager<User> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
     private readonly ILoggingService _loggingService;
     private IPublishEndpoint _publishEndpoint;
 
-    public AuthController(IHttpContextAccessor context,
+    public AuthController(
+        UserDbContext dbContext,
         UserSignInManager userSignInManager,
         UserManager<User> manager,
-        RoleManager<IdentityRole> roleManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
         ILoggingService loggingService, 
         IPublishEndpoint publishEndpoint)
     {
-        _context = context;
+        _dbContext = dbContext;
         _userSignInManager= userSignInManager;
         _userManager = manager;
         _roleManager = roleManager;
@@ -42,10 +46,34 @@ public class AuthController : ControllerBase
         _publishEndpoint = publishEndpoint;
     }
     
-    private IDictionary<string, string> GetCookieData()
+    private IDictionary<string, string> GetResponseCookieData()
     {
         var cookieDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var parts in Response.Headers.SetCookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
+        {
+            var cookieName = parts[0].Trim();
+            string cookieValue;
+
+            if (parts.Length == 1)
+            {
+                //Cookie attribute
+                cookieValue = string.Empty;
+            }
+            else
+            {
+                cookieValue = parts[1].Remove(parts[1].IndexOf(';'));
+            }
+
+            cookieDictionary[cookieName] = cookieValue;
+        }
+
+        return cookieDictionary;
+    }
+    
+    private IDictionary<string, string> GetRequestCookieData()
+    {
+        var cookieDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var parts in Request.Headers.SetCookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
         {
             var cookieName = parts[0].Trim();
             string cookieValue;
@@ -70,23 +98,45 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
     {
-        var result = await _userSignInManager.PasswordSignInAsync(userCredentialsDto.Username, userCredentialsDto.Password, false, false);
-        var token = GetCookieData()["Identity.Token"]; 
-        if (result.Succeeded)
+        if(HttpContext.User.Identity != null && HttpContext.User.Identity.IsAuthenticated)
+            return BadRequest("User is already authenticated");
+        var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
+        if (user is not null)
         {
-            //To fix: 
-            var verificationResult = Securoman.VerifyToken(token);
-            var payload = PSec.DecodePayload(token);
-            _loggingService.Local().Information("{@verificationResult}", verificationResult);
-            var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
-            if(user.LogHandleId == Guid.Empty)
-                await _publishEndpoint.Publish(new UserCreated(new Guid(user.Id)));
-            _loggingService.Information($"User logged in with device: {_context.HttpContext.Request.Headers.UserAgent}",user.LogHandleId);
-            return Ok(Encoding.UTF8.GetString(verificationResult.PublicKey));
+            var result = await _userSignInManager.CheckPasswordSignInAsync(user,userCredentialsDto.Password, false);
+            if (result.Succeeded)
+            {
+                await _userSignInManager.SignInAsync(user, true);
+                var token = GetResponseCookieData()["Identity.Token"];
+                var verificationResult = Securoman.VerifyTokenWithSecret(token, user.SecretKey);
+                _loggingService.Information(
+                    $"User logged in with device: {HttpContext.Request.Headers.UserAgent}", user.LogHandleId);
+                return Ok(new { PK = Encoding.UTF8.GetString(verificationResult.PublicKey) });
+            }
         }
         _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
     }
+    
+    [HttpPost("refresh")]
+    [Authorize(Policy = Policies.AUTHENTICATED)]
+    public async Task<IActionResult> Refresh()
+    {
+        // Get authenticated user
+        var user = _userManager.GetUserAsync(HttpContext.User);
+        var sessionId = HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
+        if (sessionId != null)
+        {
+            //Debug why DB Context not working
+            var sessionGuid = Guid.Parse(sessionId);
+            var session = _dbContext.UserSessions.FirstOrDefault(s => s.Id == sessionGuid);
+            Console.WriteLine("");
+        }
+        
+        Console.WriteLine("");
+        return BadRequest();
+    }
+    
     [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(
@@ -94,24 +144,23 @@ public class AuthController : ControllerBase
         string email,
         string password)
     {
-        var generatedId = Guid.NewGuid().ToString();
+        var logHandleId = Guid.NewGuid();
         var user = new User
         {
-            Id = generatedId,
             UserName = username,
             Email = email,
-            LogHandleId =  Guid.Empty
+            UserType = "Member",
+            LogHandleId =  logHandleId,
+            SecretKey = PSec.GenerateSymmetricKey().Key.ToArray()
         };       
         var result = await _userManager.CreateAsync(user, password);
-        if (!result.Succeeded) return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
-        
-        await _publishEndpoint.Publish(new UserCreated(new Guid(generatedId)));
-        
+        if (!result.Succeeded) 
+            return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
         //Temporary
         var adminRole = await _roleManager.FindByNameAsync("Admin");
         if (adminRole == null)
         { 
-            adminRole = new IdentityRole("Admin");
+            adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
                 new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "AuthService"));
@@ -127,17 +176,9 @@ public class AuthController : ControllerBase
                     user.LogHandleId);
             }
         }
-        await _userSignInManager.SignInAsync(user,true);
+        //await _userSignInManager.SignInAsync(user,true);
         return Ok();
     }
-
-    [HttpGet("refresh")]
-    [Authorize(Policy = Policies.AUTHENTICATED)]
-    public async Task<IActionResult> Get()
-    {
-        await _userManager.FindByIdAsync(_context.HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        
-        return Ok($"Authorzied: {await _userManager.GetUserAsync(HttpContext.User)}");
-    }
+    
     
 }

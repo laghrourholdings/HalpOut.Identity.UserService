@@ -35,6 +35,7 @@
       <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Migrations" />
       <Folder Include="ServiceBus\Consumer Contracts" />
+      <Folder Include="ServiceBus\Consumer Contracts\Users" />
     </ItemGroup>
 
 
