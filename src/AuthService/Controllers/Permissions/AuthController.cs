@@ -14,6 +14,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Paseto;
 
 namespace AuthService.Controllers.Permissions;
@@ -73,7 +74,7 @@ public class AuthController : ControllerBase
     private IDictionary<string, string> GetRequestCookieData()
     {
         var cookieDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var parts in Request.Headers.SetCookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
+        foreach (var parts in HttpContext.Request.Headers.Cookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
         {
             var cookieName = parts[0].Trim();
             string cookieValue;
@@ -98,8 +99,8 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
     {
-        if(HttpContext.User.Identity != null && HttpContext.User.Identity.IsAuthenticated)
-            return BadRequest("User is already authenticated");
+        if (HttpContext.User.Identity != null && HttpContext.User.Identity.IsAuthenticated)
+            await _userSignInManager.SignOutAsync();
         var user = await _userManager.FindByNameAsync(userCredentialsDto.Username);
         if (user is not null)
         {
@@ -123,18 +124,54 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Refresh()
     {
         // Get authenticated user
-        var user = _userManager.GetUserAsync(HttpContext.User);
-        var sessionId = HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
-        if (sessionId != null)
-        {
-            //Debug why DB Context not working
-            var sessionGuid = Guid.Parse(sessionId);
-            var session = _dbContext.UserSessions.FirstOrDefault(s => s.Id == sessionGuid);
-            Console.WriteLine("");
-        }
+        var sessionUser = await _userManager.GetUserAsync(HttpContext.User);
+        if (sessionUser == null
+            || !HttpContext.User.HasClaim(x => x.Type == ClaimTypes.NameIdentifier)
+            || !HttpContext.User.HasClaim(x => x.Type == UserClaimTypes.UserSessionId))
+            return BadRequest("User is not authenticated");
+        var sessionId = new Guid(HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!
+            .Value);
+        var session = _dbContext.UserSessions.Include(x=>x.Device)
+            .FirstOrDefault(s => 
+                s.Id == sessionId);
         
-        Console.WriteLine("");
-        return BadRequest();
+        var token = HttpContext.Request.Cookies["Identity.Token"];
+        
+        if (token is null || session is null)
+            return BadRequest("Token or session is null");
+
+        var param = Securoman.DefaultParameters;
+        param.ValidateLifetime = false;
+        var verificationResult = Securoman.VerifyToken(
+            token,
+            session.PublicKey, param);
+        if (!verificationResult.Result.IsValid)
+            return BadRequest("Token is invalid");
+        
+        var tokenUserId = verificationResult.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
+        var tokenSessionId = verificationResult.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!.Value;
+        
+        var callerDevice = Deviceman.CreateDevice(
+            HttpContext.Request.Headers["User-Agent"],
+            HttpContext.Connection.RemoteIpAddress.ToString(),
+            new Guid(tokenUserId));
+        if (session.IsDeleted
+            || session.Id.ToString() != tokenSessionId
+            || tokenUserId != session.UserId.ToString()
+            || session.Device.Hash != callerDevice.Hash) return BadRequest("Please re-authenticate");
+        
+        var exp = DateTimeOffset.UtcNow.AddMinutes(5);
+        var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
+        var newToken = Securoman.GenerateToken(
+            asymmetricKey,
+            HttpContext.User.Claims,
+            sessionUser.SecretKey, exp);
+        HttpContext.Response.Cookies.Append("Identity.Token",
+            newToken, new CookieOptions
+            {
+                Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+            });
+        return Ok(newToken);
     }
     
     [AllowAnonymous]
@@ -151,7 +188,7 @@ public class AuthController : ControllerBase
             Email = email,
             UserType = "Member",
             LogHandleId =  logHandleId,
-            SecretKey = PSec.GenerateSymmetricKey().Key.ToArray()
+            SecretKey = Pasetoman.GenerateSymmetricKey().Key.ToArray()
         };       
         var result = await _userManager.CreateAsync(user, password);
         if (!result.Succeeded) 
