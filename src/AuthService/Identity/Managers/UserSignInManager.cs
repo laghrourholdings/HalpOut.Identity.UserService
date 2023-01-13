@@ -1,4 +1,4 @@
-﻿using CommonLibrary.AspNetCore.Identity.Models;
+﻿using AuthService.Identity.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;

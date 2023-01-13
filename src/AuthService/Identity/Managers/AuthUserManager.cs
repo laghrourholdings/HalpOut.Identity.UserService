@@ -1,5 +1,5 @@
 ﻿using System.Security.Claims;
-using CommonLibrary.AspNetCore.Identity.Models;
+using AuthService.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
 using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
 using MassTransit;
