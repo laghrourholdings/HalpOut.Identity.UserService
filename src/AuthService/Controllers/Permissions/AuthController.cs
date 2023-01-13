@@ -128,12 +128,7 @@ public class AuthController : ControllerBase
             || !HttpContext.User.HasClaim(x => x.Type == ClaimTypes.NameIdentifier)
             || !HttpContext.User.HasClaim(x => x.Type == UserClaimTypes.UserSessionId))
             return BadRequest("User is not authenticated");
-        
-        //
-        _loggingService.Information("Refresh token requested", sessionUser.LogHandleId);
-        return Ok();
-        //
-        
+
         var sessionId = new Guid(HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!
             .Value);
         var session = _dbContext.UserSessions.Include(x=>x.Device)
@@ -205,6 +200,7 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, password);
         if (!result.Succeeded) 
             return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
+
         //Temporary
         var adminRole = await _roleManager.FindByNameAsync("Admin");
         if (adminRole == null)
