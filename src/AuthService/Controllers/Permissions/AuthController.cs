@@ -2,20 +2,19 @@
 using System.Text;
 using System.Text.Json;
 using AuthService.EFCore;
+using AuthService.Identity;
 using AuthService.Identity.Managers;
-using CommonLibrary.AspNetCore.Identity;
+using AuthService.Identity.Models;
 using CommonLibrary.AspNetCore.Identity.Helpers;
-using CommonLibrary.AspNetCore.Identity.Models;
 using CommonLibrary.AspNetCore.Logging.LoggingService;
-using CommonLibrary.AspNetCore.ServiceBus.Contracts.Logging;
-using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
 using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Paseto;
+using Deviceman = AuthService.Identity.Helpers.Deviceman;
+using Securoman = AuthService.Identity.Helpers.Securoman;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -129,6 +128,12 @@ public class AuthController : ControllerBase
             || !HttpContext.User.HasClaim(x => x.Type == ClaimTypes.NameIdentifier)
             || !HttpContext.User.HasClaim(x => x.Type == UserClaimTypes.UserSessionId))
             return BadRequest("User is not authenticated");
+        
+        //
+        _loggingService.Information("Refresh token requested", sessionUser.LogHandleId);
+        return Ok();
+        //
+        
         var sessionId = new Guid(HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!
             .Value);
         var session = _dbContext.UserSessions.Include(x=>x.Device)
@@ -146,8 +151,11 @@ public class AuthController : ControllerBase
             token,
             session.PublicKey, param);
         if (!verificationResult.Result.IsValid)
+        {
+            await _userSignInManager.SignOutAsync();
             return BadRequest("Token is invalid");
-        
+        }
+
         var tokenUserId = verificationResult.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
         var tokenSessionId = verificationResult.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!.Value;
         
@@ -158,7 +166,11 @@ public class AuthController : ControllerBase
         if (session.IsDeleted
             || session.Id.ToString() != tokenSessionId
             || tokenUserId != session.UserId.ToString()
-            || session.Device.Hash != callerDevice.Hash) return BadRequest("Please re-authenticate");
+            || session.Device.Hash != callerDevice.Hash)
+        {
+            await _userSignInManager.SignOutAsync();
+            return BadRequest("Please re-authenticate");
+        }
         
         var exp = DateTimeOffset.UtcNow.AddMinutes(5);
         var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);

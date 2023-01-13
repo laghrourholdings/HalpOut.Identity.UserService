@@ -1,10 +1,10 @@
 using AuthService.EFCore;
+using AuthService.Identity;
 using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
+using AuthService.Identity.Models;
 using AuthService.Identity.Stores;
-using AuthService.Middleware;
 using CommonLibrary.AspNetCore;
-using CommonLibrary.AspNetCore.Identity.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Redis;
@@ -50,7 +50,7 @@ builder.Services.AddDbContext<UserDbContext>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = "Identity.Session";
-    options.ExpireTimeSpan = TimeSpan.FromDays(14);
+    options.ExpireTimeSpan = TimeSpan.FromDays(90);
     options.SlidingExpiration = true;
     options.SessionStore = new UserSessionStore(new RedisCacheOptions
     {
@@ -58,11 +58,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     }, builder.Services);
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
+builder.Services.AddAuthorization(options => Policies.UserPolicies(options));
 
 var app = builder.Build();
 app.UseAuthentication();
 app.UseCommonLibrary(MyAllowSpecificOrigins);
-app.UseRefreshJwtMiddleware();
+app.UseAuthorization();
 if (app.Environment.IsDevelopment()) 
 {
     app.UseSwagger();

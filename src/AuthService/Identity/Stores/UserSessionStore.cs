@@ -1,18 +1,15 @@
 using System.Net;
 using System.Security.Claims;
 using AuthService.EFCore;
+using AuthService.Identity.Models;
 using CommonLibrary.AspNetCore.Identity.Helpers;
-using CommonLibrary.AspNetCore.Identity.Models;
-using CommonLibrary.Utilities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Session;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
-using Paseto.Cryptography.Key;
-using Paseto.Protocol;
+using Deviceman = AuthService.Identity.Helpers.Deviceman;
+using Securoman = AuthService.Identity.Helpers.Securoman;
 
 namespace AuthService.Identity.Stores;
 
@@ -73,7 +70,7 @@ public class UserSessionStore : ITicketStore
         httpContext.Response.Cookies.Append("Identity.Token",
             token, new CookieOptions
             {
-                Expires = exp
+                Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
             });
         var options = new DistributedCacheEntryOptions();
         byte[] ticketBytes = Pasetoman.SerializeToBytes(ticket);
