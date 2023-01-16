@@ -1,5 +1,5 @@
 ﻿using AuthService.Identity.Models;
-using CommonLibrary.Utilities;
+using CommonLibrary.Core;
 
 namespace AuthService.Identity.Helpers;
 

@@ -1,8 +1,9 @@
 using System.Net;
 using System.Security.Claims;
-using AuthService.EFCore;
+using AuthService.Core;
 using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Identity.Helpers;
+using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;

@@ -3,7 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Identity.Helpers;
+using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.Identity.Models;
 using Paseto;
 using Paseto.Cryptography.Key;
 

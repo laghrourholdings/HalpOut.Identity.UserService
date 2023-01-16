@@ -1,10 +1,11 @@
-using AuthService.EFCore;
+using AuthService.Core;
 using AuthService.Identity;
 using AuthService.Identity.Authorization;
 using AuthService.Identity.Managers;
 using AuthService.Identity.Models;
 using AuthService.Identity.Stores;
 using CommonLibrary.AspNetCore;
+using CommonLibrary.AspNetCore.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Redis;
