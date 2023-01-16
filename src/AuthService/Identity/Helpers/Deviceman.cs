@@ -1,7 +1,6 @@
-﻿using AuthService.Identity.Models;
-using CommonLibrary.Utilities;
+﻿using CommonLibrary.Core;
 
-namespace AuthService.Identity.Helpers;
+namespace AuthService.Identity;
 
 public static class Deviceman
 {

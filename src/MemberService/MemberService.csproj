@@ -14,4 +14,8 @@
       <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary.AspNetCore\CommonLibrary.AspNetCore.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Identity" />
+    </ItemGroup>
+
 </Project>

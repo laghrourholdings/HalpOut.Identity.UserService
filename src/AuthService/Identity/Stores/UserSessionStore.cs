@@ -1,17 +1,15 @@
 using System.Net;
 using System.Security.Claims;
-using AuthService.EFCore;
-using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Identity.Helpers;
+using AuthService.Core;
+using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Redis;
-using Deviceman = AuthService.Identity.Helpers.Deviceman;
-using Securoman = AuthService.Identity.Helpers.Securoman;
 
-namespace AuthService.Identity.Stores;
+namespace AuthService.Identity;
 
 public class UserSessionStore : ITicketStore
 {

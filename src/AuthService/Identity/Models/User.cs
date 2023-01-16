@@ -1,7 +1,7 @@
 ﻿using CommonLibrary.Logging;
 using Microsoft.AspNetCore.Identity;
 
-namespace AuthService.Identity.Models;
+namespace AuthService.Identity;
 
 public sealed class User : IdentityUser<Guid>, ILoggable
 {

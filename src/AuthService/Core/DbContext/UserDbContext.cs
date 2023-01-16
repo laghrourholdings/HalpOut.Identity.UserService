@@ -1,11 +1,11 @@
-﻿using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Settings;
-using CommonLibrary.ModelBuilders;
+﻿using AuthService.Identity;
+using CommonLibrary.AspNetCore.Core;
+using CommonLibrary.Core;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.EFCore;
+namespace AuthService.Core;
 
 public class UserDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
 {

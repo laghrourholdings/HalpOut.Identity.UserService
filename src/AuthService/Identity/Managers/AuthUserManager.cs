@@ -1,12 +1,12 @@
 ﻿using System.Security.Claims;
-using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Logging.LoggingService;
-using CommonLibrary.AspNetCore.ServiceBus.Contracts.Users;
+using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.Identity.Models;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
-namespace AuthService.Identity.Managers;
+namespace AuthService.Identity;
 
 public class AuthUserManager : UserManager<User>
 {

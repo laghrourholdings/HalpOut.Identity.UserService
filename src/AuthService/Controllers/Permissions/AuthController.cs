@@ -1,20 +1,19 @@
 ﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using AuthService.EFCore;
+using AuthService.Core;
 using AuthService.Identity;
-using AuthService.Identity.Managers;
-using AuthService.Identity.Models;
-using CommonLibrary.AspNetCore.Identity.Helpers;
-using CommonLibrary.AspNetCore.Logging.LoggingService;
+using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.AspNetCore.Logging;
+using CommonLibrary.Identity.Models;
 using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Deviceman = AuthService.Identity.Helpers.Deviceman;
-using Securoman = AuthService.Identity.Helpers.Securoman;
+using Deviceman = AuthService.Identity.Deviceman;
+using Securoman = AuthService.Identity.Securoman;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -147,7 +146,7 @@ public class AuthController : ControllerBase
             session.PublicKey, param);
         if (!verificationResult.Result.IsValid)
         {
-            await _userSignInManager.SignOutAsync();
+            //await _userSignInManager.SignOutAsync();
             return BadRequest("Token is invalid");
         }
 

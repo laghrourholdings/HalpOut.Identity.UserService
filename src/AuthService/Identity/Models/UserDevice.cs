@@ -1,6 +1,6 @@
 ﻿using CommonLibrary.Core;
 
-namespace AuthService.Identity.Models;
+namespace AuthService.Identity;
 
 public class UserDevice : IObject, ISuspendable, IDeletable
 {

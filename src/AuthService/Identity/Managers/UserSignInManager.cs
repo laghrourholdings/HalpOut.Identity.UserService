@@ -1,9 +1,8 @@
-﻿using AuthService.Identity.Models;
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
-namespace AuthService.Identity.Managers;
+namespace AuthService.Identity;
 
 /*public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
 {

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 
-namespace AuthService.Identity.Authorization;
+namespace AuthService.Identity;
 
 public class UserAuthorizationMiddlewareResultHandler : IAuthorizationMiddlewareResultHandler
 {

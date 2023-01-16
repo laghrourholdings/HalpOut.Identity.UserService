@@ -31,12 +31,10 @@
     <ItemGroup>
       <Folder Include="Controllers\Permissions\Employee" />
       <Folder Include="Controllers\Permissions\User" />
+      <Folder Include="Core" />
       <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Identity\Models\Dtos" />
-      <Folder Include="Middleware" />
       <Folder Include="Migrations" />
-      <Folder Include="ServiceBus\Consumer Contracts" />
-      <Folder Include="ServiceBus\Consumer Contracts\Users" />
     </ItemGroup>
 
 
