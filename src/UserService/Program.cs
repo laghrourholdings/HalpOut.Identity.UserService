@@ -1,6 +1,5 @@
 using AuthService.Core;
 using AuthService.Identity;
-using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

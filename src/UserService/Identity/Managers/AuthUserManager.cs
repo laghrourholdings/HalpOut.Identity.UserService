@@ -43,7 +43,12 @@ public class AuthUserManager : UserManager<User>
         if (response.Succeeded)
         {
             _loggingService.CreateLogHandle(user.LogHandleId, user.Id, "User");
-            _publishEndpoint.Publish(new UserCreated(user.Id, user.LogHandleId));
+            _publishEndpoint.Publish(new UserCreated(new UserBadge()
+            {
+                LogHandleId = user.LogHandleId,
+                UserId = user.Id,
+                SecretKey = user.SecretKey
+            }));
             await base.AddClaimAsync(user, new Claim(UserClaimTypes.LogHandleId,user.LogHandleId.ToString()));
             await base.AddClaimAsync(user, new Claim(UserClaimTypes.UserType, user.UserType));
         }

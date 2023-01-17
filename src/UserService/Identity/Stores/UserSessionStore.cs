@@ -83,7 +83,6 @@ public class UserSessionStore : ITicketStore
     public async Task<string> StoreAsync(AuthenticationTicket rawTicket)
     {
         var key = KeyPrefix + Guid.NewGuid();
-        Console.WriteLine($"Storing {key}");
         await CreateSession(key, rawTicket);
         return key;
     }
@@ -91,7 +90,6 @@ public class UserSessionStore : ITicketStore
   
     public async Task RenewAsync(string key, AuthenticationTicket ticket)
     {
-        Console.WriteLine($"Renewing {key}");
         byte[] ticketBytes = Pasetoman.SerializeToBytes(ticket);
         var options = new DistributedCacheEntryOptions();
         var expiresUtc = ticket.Properties.ExpiresUtc;
@@ -148,7 +146,6 @@ public class UserSessionStore : ITicketStore
     // Request start
     public async Task<AuthenticationTicket?> RetrieveAsync(string key)
     {
-        Console.WriteLine($"Retrieving {key}");
         var bytes =  await _cache.GetAsync(key);
         var ticket = Pasetoman.DeserializeFromBytes(bytes);
         return ticket;

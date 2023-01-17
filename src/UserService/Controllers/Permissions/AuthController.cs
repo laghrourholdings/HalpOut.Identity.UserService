@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Deviceman = AuthService.Identity.Deviceman;
-using Securoman = AuthService.Identity.Securoman;
+using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
 namespace AuthService.Controllers.Permissions;
 
@@ -116,10 +116,37 @@ public class AuthController : ControllerBase
         _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
     }
-    
-    [HttpPost("refresh")]
+
+    [HttpGet("refreshBadge")]
     [Authorize(Policy = Policies.AUTHENTICATED)]
-    public async Task<IActionResult> Refresh()
+    public async Task<IActionResult> RefreshBadge(string token)
+    {
+        var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
+        var userId = unverifiedUserTicket?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        var sessionId = HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
+        if (userId == null || sessionId == null) return NotFound();
+        var user = await _userManager.GetUserAsync(HttpContext.User);
+        
+        //device not included in LINQ request
+        var session = _dbContext.UserSessions.FirstOrDefault(s => s.Id == new Guid(sessionId));
+        if (user == null || session == null || session.IsDeleted) return NotFound();
+        
+        var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
+        if (verificationResult.Result.IsValid)
+        {
+            return Ok(new UserBadge()
+            {
+                UserId = new Guid(userId),
+                LogHandleId = user.LogHandleId,
+                SecretKey = user.SecretKey,
+            });
+        }
+        return NotFound();
+    }
+    
+    [HttpGet("refreshToken")]
+    [Authorize(Policy = Policies.AUTHENTICATED)]
+    public async Task<IActionResult> RefreshToken()
     {
         // Get authenticated user
         var sessionUser = await _userManager.GetUserAsync(HttpContext.User);
