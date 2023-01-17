@@ -1,0 +1,68 @@
+# docker run -d --rm -name mongo -p 27017:27017 -v mongodbdata:/data/db mongo
+
+version: "3.6"
+
+services:
+  userservice_user_postgredb:
+    image: 'postgres'
+    # By default, a Postgres database is running on the 5432 port.
+    # If we want to access the database from our computer (outside the container),
+    # we must share the port with our computer's port.
+    # The syntax is [port we want on our machine]:[port we want to retrieve in the container]
+    # Note: You are free to change your computer's port,
+    # but take into consideration that it will change the way
+    # you are connecting to your database.
+    ports:
+      - "6013:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password 
+      POSTGRES_DB: default_database 
+    volumes:
+      - ./db-data/userservice_user:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - internal
+      
+  userservice_sessionCache_redis:
+    image: "redis:alpine"
+    
+    command: redis-server
+    
+    ports:
+      - "6023:6379"
+    
+    volumes:
+      - ./db-data/userservice_sessionCache/www:/home/distressedpro/public_html
+      - ./db-data/userservice_sessionCache/conf:/etc/apache2/sites-available
+      
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    restart: unless-stopped
+    networks:
+      - internal
+  userservice:
+    container_name: userservice
+    build:
+      context:  ../../src/UserService/
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+    - "4043:443"
+    - "5053:80"
+    networks:
+      - external
+      - internal
+    depends_on:
+      - userservice_sessionCache_redis
+      - userservice_user_postgredb
+
+networks:
+  external:
+    external: true
+    name: external_network
+  internal:
+    external: true
+    name: internal_network
+
+
