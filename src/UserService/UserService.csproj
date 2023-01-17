@@ -5,14 +5,15 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <DockerfileRunArguments>-p "4043:443" -p "5053:80"</DockerfileRunArguments>        
+        <DockerfileRunArguments>-p "4043:443" -p "5053:80"</DockerfileRunArguments>
+        <RootNamespace>AuthService</RootNamespace>        
         
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="AutoMapper" Version="12.0.0" />
         <PackageReference Include="JWT" Version="9.0.3" />
-        <PackageReference Include="LH.ForYou.CommonLibrary.AspNetCore" Version="1.0.4" />
+        <PackageReference Include="LaghrourHoldings.HalpOut.CommonLibrary.AspNetCore" Version="1.0.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.2.0" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.12" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.11" />
@@ -25,13 +26,12 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\CommonLibrary\src\CommonLibrary.AspNetCore\CommonLibrary.AspNetCore.csproj" />
+        <ProjectReference Include="..\..\..\..\..\Libraries\CommonLibrary\src\CommonLibrary.AspNetCore\CommonLibrary.AspNetCore.csproj" />
     </ItemGroup>
     
     <ItemGroup>
       <Folder Include="Controllers\Permissions\Employee" />
       <Folder Include="Controllers\Permissions\User" />
-      <Folder Include="Core" />
       <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Identity\Models\Dtos" />
       <Folder Include="Migrations" />

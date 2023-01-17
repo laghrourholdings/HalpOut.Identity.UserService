@@ -19,8 +19,8 @@ public class UserDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        ServiceSettings serviceSettings = _configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>() ?? throw new InvalidOperationException("ServiceSettings is null");
-        optionsBuilder.UseNpgsql(serviceSettings.PostgresConnectionString);
+        DatabaseSettings serviceSettings = _configuration.GetSection(nameof(DatabaseSettings)).Get<DatabaseSettings>() ?? throw new InvalidOperationException("ServiceSettings is null");
+        optionsBuilder.UseNpgsql(serviceSettings.UserPostgresConnectionString);
     }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)

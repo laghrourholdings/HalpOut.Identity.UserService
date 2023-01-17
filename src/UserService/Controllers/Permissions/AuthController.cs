@@ -207,9 +207,9 @@ public class AuthController : ControllerBase
             adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "AuthService"));
+                new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "UserService"));
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.read", ClaimValueTypes.String, "AuthService"));
+                new Claim(UserClaimTypes.Previlege, "projects.read", ClaimValueTypes.String, "UserService"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

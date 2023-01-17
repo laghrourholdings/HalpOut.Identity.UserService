@@ -4,6 +4,7 @@ using CommonLibrary.AspNetCore;
 using CommonLibrary.AspNetCore.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Redis;
 using Serilog;
 
@@ -12,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 var  MyAllowSpecificOrigins = "7";
 
 var logger = new LoggerConfiguration().WriteTo.Console();
+builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection(nameof(DatabaseSettings)));
 builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins);
 builder.Services.AddCommonLibraryLoggingService();
 builder.Services.AddSwaggerGen();
@@ -52,7 +54,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
     options.SessionStore = new UserSessionStore(new RedisCacheOptions
     {
-        Configuration = "localhost:6379"
+        Configuration = builder.Configuration.GetSection(nameof(DatabaseSettings)).Get<DatabaseSettings>().SessionCacheRedisConfigurationString
     }, builder.Services);
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
@@ -66,5 +68,15 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+
+    var context = services.GetRequiredService<UserDbContext>();
+    if (context.Database.GetPendingMigrations().Any())
+    {
+        context.Database.Migrate();
+    }
 }
 app.Run();

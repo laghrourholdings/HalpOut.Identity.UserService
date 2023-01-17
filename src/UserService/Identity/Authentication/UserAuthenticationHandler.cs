@@ -6,7 +6,7 @@ using CommonLibrary.AspNetCore.Identity.Model;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
-namespace AuthService.Identity.Authentication;
+namespace UserService.Identity.Authentication;
 
 public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticationOptions>
     {
