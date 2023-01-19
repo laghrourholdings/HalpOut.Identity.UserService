@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using AuthService.Core;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Paseto;
 using Deviceman = AuthService.Identity.Deviceman;
 using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
@@ -118,14 +120,15 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("refreshBadge")]
-    [Authorize(Policy = Policies.AUTHENTICATED)]
     public async Task<IActionResult> RefreshBadge(string token)
     {
+        //var userr = HttpContext.User;
         var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
-        var userId = unverifiedUserTicket?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
-        var sessionId = HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
+        var ticketClaims = unverifiedUserTicket?.ToList();
+        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
         if (userId == null || sessionId == null) return NotFound();
-        var user = await _userManager.GetUserAsync(HttpContext.User);
+        var user = _userManager.Users.FirstOrDefault(x=>x.Id == new Guid(userId));
         
         //device not included in LINQ request
         var session = _dbContext.UserSessions.FirstOrDefault(s => s.Id == new Guid(sessionId));
