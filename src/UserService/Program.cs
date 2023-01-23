@@ -1,6 +1,7 @@
 using AuthService.Core;
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Core;
+using CommonLibrary.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +49,9 @@ builder.Services.AddDbContext<UserDbContext>();
 //builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "Identity.Session";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.Name = SecuromanDefaults.SessionCookie;
     options.ExpireTimeSpan = TimeSpan.FromDays(90);
     options.SlidingExpiration = true;
     options.SessionStore = new UserSessionStore(new RedisCacheOptions

@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using AuthService.Core;
@@ -13,7 +12,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Paseto;
 using Deviceman = AuthService.Identity.Deviceman;
 using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
@@ -70,31 +68,7 @@ public class AuthController : ControllerBase
 
         return cookieDictionary;
     }
-    
-    private IDictionary<string, string> GetRequestCookieData()
-    {
-        var cookieDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var parts in HttpContext.Request.Headers.Cookie.ToArray().Select(c => c.Split(new[] { '=' }, 2)))
-        {
-            var cookieName = parts[0].Trim();
-            string cookieValue;
 
-            if (parts.Length == 1)
-            {
-                //Cookie attribute
-                cookieValue = string.Empty;
-            }
-            else
-            {
-                cookieValue = parts[1].Remove(parts[1].IndexOf(';'));
-            }
-
-            cookieDictionary[cookieName] = cookieValue;
-        }
-
-        return cookieDictionary;
-    }
-    
     //TODO add loghandleId to claims trust
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserCredentialsDto userCredentialsDto)
@@ -108,7 +82,7 @@ public class AuthController : ControllerBase
             if (result.Succeeded)
             {
                 await _userSignInManager.SignInAsync(user, true);
-                var token = GetResponseCookieData()["Identity.Token"];
+                var token = GetResponseCookieData()[SecuromanDefaults.TokenCookie];
                 var verificationResult = Securoman.VerifyTokenWithSecret(token, user.SecretKey);
                 _loggingService.Information(
                     $"User logged in with device: {HttpContext.Request.Headers.UserAgent}", user.LogHandleId);
@@ -120,9 +94,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("refreshBadge")]
-    public async Task<IActionResult> RefreshBadge(string token)
+    [Authorize(Policy = Policies.AUTHENTICATED)]
+    public async Task<IActionResult> RefreshBadge()
     {
-        //var userr = HttpContext.User;
+        var token = Request.Cookies[SecuromanDefaults.TokenCookie];
         var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
         var userId = ticketClaims?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
@@ -164,7 +139,7 @@ public class AuthController : ControllerBase
             .FirstOrDefault(s => 
                 s.Id == sessionId);
         
-        var token = HttpContext.Request.Cookies["Identity.Token"];
+        var token = HttpContext.Request.Cookies[SecuromanDefaults.TokenCookie];
         
         if (token is null || session is null)
             return BadRequest("Token or session is null");
@@ -193,6 +168,7 @@ public class AuthController : ControllerBase
             || session.Device.Hash != callerDevice.Hash)
         {
             await _userSignInManager.SignOutAsync();
+            Response.Cookies.Delete(SecuromanDefaults.TokenCookie);
             return BadRequest("Please re-authenticate");
         }
         
@@ -202,7 +178,7 @@ public class AuthController : ControllerBase
             asymmetricKey,
             HttpContext.User.Claims,
             sessionUser.SecretKey, exp);
-        HttpContext.Response.Cookies.Append("Identity.Token",
+             HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             newToken, new CookieOptions
             {
                 Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))

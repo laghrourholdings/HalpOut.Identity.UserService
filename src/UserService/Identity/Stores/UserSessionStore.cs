@@ -65,7 +65,7 @@ public class UserSessionStore : ITicketStore
             asymmetricKey,
             ticket.Principal.Claims,
             user.SecretKey, exp);
-        httpContext.Response.Cookies.Append("Identity.Token",
+        httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             token, new CookieOptions
             {
                 Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
@@ -129,7 +129,7 @@ public class UserSessionStore : ITicketStore
                     asymmetricKey,
                     ticket.Principal.Claims,
                     user.SecretKey, exp);
-                httpContext.Response.Cookies.Append("Identity.Token",
+                httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 token, new CookieOptions
                     {
                         Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
