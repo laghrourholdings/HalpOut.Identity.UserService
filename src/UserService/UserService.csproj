@@ -30,8 +30,6 @@
     </ItemGroup>
     
     <ItemGroup>
-      <Folder Include="Controllers\Permissions\Employee" />
-      <Folder Include="Controllers\Permissions\User" />
       <Folder Include="Identity\Authorization\Requirements" />
       <Folder Include="Identity\Models\Dtos" />
       <Folder Include="Migrations" />

@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Deviceman = AuthService.Identity.Deviceman;
 using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
-namespace AuthService.Controllers.Permissions;
+namespace AuthService.Controllers;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
@@ -112,12 +112,32 @@ public class AuthController : ControllerBase
         var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
         if (verificationResult.Result.IsValid)
         {
-            return Ok(new UserBadge()
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var rolePrincipal = new RolePrincipal();
+            foreach (var userRole in userRoles)
             {
-                UserId = new Guid(userId),
+                var role = await _roleManager.FindByNameAsync(userRole);
+                if (role == null) continue;
+                var roleClaims = await _roleManager.GetClaimsAsync(role);
+                foreach (var roleClaim in roleClaims)
+                {
+                    rolePrincipal.Permissions.Add(
+                        new RolePrincipal.UserPermission
+                        {
+                            Issuer = roleClaim.Issuer,
+                            Type = roleClaim.Type,
+                            Value = roleClaim.Value
+                        });
+                }
+            }
+            var userBadge = new UserBadge()
+            {
                 LogHandleId = user.LogHandleId,
+                UserId = user.Id,
                 SecretKey = user.SecretKey,
-            });
+                RolePrincipal = rolePrincipal
+            };
+            return Ok(userBadge);
         }
         return NotFound();
     }
@@ -213,9 +233,9 @@ public class AuthController : ControllerBase
             adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Rights, "projects.create", ClaimValueTypes.String, "UserService"));
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.read", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Rights, "projects.read", ClaimValueTypes.String, "UserService"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

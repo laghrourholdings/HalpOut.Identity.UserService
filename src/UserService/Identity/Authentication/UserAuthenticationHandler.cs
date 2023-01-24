@@ -61,7 +61,7 @@ public class UserAuthenticationHandler : AuthenticationHandler<UserAuthenticatio
             /*var claims = new List<Claim> {
                 new(nameof(user.UserName), user.UserName, ClaimValueTypes.String, Issuer),
                 new(UserClaimTypes.UserSessionId, Guid.Empty.ToString(), ClaimValueTypes.String, Issuer),
-                new(UserClaimTypes.Previlege, "Administrator", ClaimValueTypes.String, Issuer),
+                new(UserClaimTypes.Rights, "Administrator", ClaimValueTypes.String, Issuer),
             };
             var identity = new ClaimsIdentity(new List<Claim> {new(ClaimTypes.Name, token)}, Scheme.Name);
             var principal = new GenericPrincipal(identity, Array.Empty<string>());
