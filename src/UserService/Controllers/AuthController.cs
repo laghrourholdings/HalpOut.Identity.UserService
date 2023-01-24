@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Deviceman = AuthService.Identity.Deviceman;
 using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
-namespace AuthService.Controllers.Permissions;
+namespace AuthService.Controllers;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
@@ -112,12 +112,33 @@ public class AuthController : ControllerBase
         var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
         if (verificationResult.Result.IsValid)
         {
-            return Ok(new UserBadge()
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var rolePrincipal = new RolePrincipal();
+            foreach (var userRole in userRoles)
             {
-                UserId = new Guid(userId),
+                var role = await _roleManager.FindByNameAsync(userRole);
+                if (role == null) continue;
+                var roleClaims = await _roleManager.GetClaimsAsync(role);
+                foreach (var roleClaim in roleClaims)
+                {
+                    rolePrincipal.Permissions.Add(
+                        new RolePrincipal.UserPermission
+                        {
+                            Issuer = roleClaim.Issuer,
+                            Type = roleClaim.Type,
+                            Value = roleClaim.Value
+                        });
+                }
+                rolePrincipal.Roles.Add(role.Name);
+            }
+            var userBadge = new UserBadge()
+            {
                 LogHandleId = user.LogHandleId,
+                UserId = user.Id,
                 SecretKey = user.SecretKey,
-            });
+                RolePrincipal = rolePrincipal
+            };
+            return Ok(userBadge);
         }
         return NotFound();
     }
@@ -126,46 +147,41 @@ public class AuthController : ControllerBase
     [Authorize(Policy = Policies.AUTHENTICATED)]
     public async Task<IActionResult> RefreshToken()
     {
-        // Get authenticated user
-        var sessionUser = await _userManager.GetUserAsync(HttpContext.User);
-        if (sessionUser == null
-            || !HttpContext.User.HasClaim(x => x.Type == ClaimTypes.NameIdentifier)
-            || !HttpContext.User.HasClaim(x => x.Type == UserClaimTypes.UserSessionId))
-            return BadRequest("User is not authenticated");
-
-        var sessionId = new Guid(HttpContext.User.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!
-            .Value);
-        var session = _dbContext.UserSessions.Include(x=>x.Device)
-            .FirstOrDefault(s => 
-                s.Id == sessionId);
-        
         var token = HttpContext.Request.Cookies[SecuromanDefaults.TokenCookie];
+        var unsecurePayload = Securoman.GetUnverifiedUserTicket(token);
+        if(unsecurePayload is null)
+            return BadRequest("Please re-authenticate");
+        var userId = HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+        // Get authenticated user
+        var sessionUser = _dbContext.Users
+            .Include(x => x.UserSessions)
+            .ThenInclude(x => x.Device).SingleOrDefault(x => x.Id == new Guid(userId));
+        if (sessionUser == null)
+            return BadRequest("Please re-authenticate");
         
-        if (token is null || session is null)
-            return BadRequest("Token or session is null");
+        var tokenSessionId = new Guid(unsecurePayload.First(x => x.Type == UserClaimTypes.UserSessionId).Value);
+        var session = sessionUser.UserSessions.FirstOrDefault(s => 
+                s.Id == tokenSessionId);
+        
+        if (session is null)
+            return BadRequest("Please re-authenticate");
 
         var param = Securoman.DefaultParameters;
         param.ValidateLifetime = false;
         var verificationResult = Securoman.VerifyToken(
             token,
             session.PublicKey, param);
-        if (!verificationResult.Result.IsValid)
+        
+        if (!verificationResult.Result.IsValid || verificationResult.HasInvalidSecretKey)
         {
-            //await _userSignInManager.SignOutAsync();
-            return BadRequest("Token is invalid");
+            return BadRequest("Please re-authenticate");
         }
 
-        var tokenUserId = verificationResult.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
-        var tokenSessionId = verificationResult.Claims.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)!.Value;
-        
         var callerDevice = Deviceman.CreateDevice(
             HttpContext.Request.Headers["User-Agent"],
             HttpContext.Connection.RemoteIpAddress.ToString(),
-            new Guid(tokenUserId));
-        if (session.IsDeleted
-            || session.Id.ToString() != tokenSessionId
-            || tokenUserId != session.UserId.ToString()
-            || session.Device.Hash != callerDevice.Hash)
+            new Guid(userId));
+        if (session.IsDeleted || session.Device.Hash != callerDevice.Hash)
         {
             await _userSignInManager.SignOutAsync();
             Response.Cookies.Delete(SecuromanDefaults.TokenCookie);
@@ -174,11 +190,15 @@ public class AuthController : ControllerBase
         
         var exp = DateTimeOffset.UtcNow.AddMinutes(5);
         var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
+        //TODO: FIX _USERMANAGER.GETGETCLAIMSASYNC()
         var newToken = Securoman.GenerateToken(
             asymmetricKey,
-            HttpContext.User.Claims,
-            sessionUser.SecretKey, exp);
-             HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
+            //TODO: Verify that there are no unnecessary database calls such that HttpContext.User.Claims is equal to _userManager.GetClaimsAsync(sessionUser)
+            await _userManager.GetClaimsAsync(sessionUser),
+            sessionUser.SecretKey,
+            session.Id,
+            exp);
+            HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             newToken, new CookieOptions
             {
                 Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
@@ -205,7 +225,6 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, password);
         if (!result.Succeeded) 
             return BadRequest($"User creation failed {JsonSerializer.Serialize(result.Errors)}");
-
         //Temporary
         var adminRole = await _roleManager.FindByNameAsync("Admin");
         if (adminRole == null)
@@ -213,9 +232,9 @@ public class AuthController : ControllerBase
             adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.create", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Rights, "projects.create", ClaimValueTypes.String, "UserService"));
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Previlege, "projects.read", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Rights, "projects.read", ClaimValueTypes.String, "UserService"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

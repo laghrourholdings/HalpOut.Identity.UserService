@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Identity;
 
 namespace AuthService.Identity;
 
-public class UserRole : IdentityRole
-{
-    
-}
+// public sealed class UserRole : IdentityRole<Guid>
+// {
+//     public UserRole(string roleName) : base(roleName)
+//     {
+//     }
+// }

@@ -58,25 +58,28 @@ public class UserSessionStore : ITicketStore
         user.UserSessions.Add(session);
         await authDbContext.SaveChangesAsync();
         
-        var sessionClaim = new Claim(UserClaimTypes.UserSessionId, session.Id.ToString());
-        ticket.Principal.AddIdentity(new ClaimsIdentity(new []{sessionClaim}));
+        
         var exp = DateTimeOffset.UtcNow.AddMinutes(5);
         var token = Securoman.GenerateToken(
             asymmetricKey,
             ticket.Principal.Claims,
-            user.SecretKey, exp);
+            user.SecretKey,
+            session.Id,
+            exp);
         httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             token, new CookieOptions
             {
                 Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
             });
+        
         var options = new DistributedCacheEntryOptions();
-        byte[] ticketBytes = Pasetoman.SerializeToBytes(ticket);
         var expiresUtc = ticket.Properties.ExpiresUtc;
         if (expiresUtc.HasValue)
         {
             options.SetAbsoluteExpiration(expiresUtc.Value);
         }
+        
+        byte[] ticketBytes = Pasetoman.SerializeToBytes(ticket);
         await _cache.SetAsync(key, ticketBytes, options);
     }
     
@@ -128,7 +131,9 @@ public class UserSessionStore : ITicketStore
                 var token = Securoman.GenerateToken(
                     asymmetricKey,
                     ticket.Principal.Claims,
-                    user.SecretKey, exp);
+                    user.SecretKey,
+                    session.Id,
+                    exp);
                 httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 token, new CookieOptions
                     {
