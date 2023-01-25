@@ -2,7 +2,7 @@
 //
 // namespace CommonLibrary.AspNetCore.Identity.Models;
 //
-// public class UserInterest : IObject
+// public class UserInterest : IBusinessObject
 // {
 //     public Guid Id { get; set; }
 //     public DateTimeOffset CreationDate { get; set; }

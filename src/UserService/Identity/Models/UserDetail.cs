@@ -2,7 +2,7 @@
 
 namespace CommonLibrary.AspNetCore.Identity.Models;
 
-public class UserDetail : IObject
+public class UserDetail : IBusinessObject
 {
     public Guid Id { get; set; }
     public DateTimeOffset CreationDate { get; set; }
