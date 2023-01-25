@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace AuthService.Identity;
 
-public sealed class User : IdentityUser<Guid>, ILoggable
+public sealed class User : IdentityUser<Guid>, IBusinessObject
 {
     public Guid LogHandleId { get; set; }
     public string UserType { get; set; }

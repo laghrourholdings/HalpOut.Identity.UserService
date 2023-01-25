@@ -1,8 +1,9 @@
 ﻿using CommonLibrary.Core;
+using CommonLibrary.Logging;
 
 namespace AuthService.Identity;
 
-public class UserDevice : IObject, ISuspendable, IDeletable
+public class UserDevice : ISuspendable, IDeletable
 {
     public Guid Id { get; set; }
     public DateTimeOffset CreationDate { get; set; }
