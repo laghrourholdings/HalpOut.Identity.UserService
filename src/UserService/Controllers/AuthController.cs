@@ -194,7 +194,7 @@ public class AuthController : ControllerBase
         var newToken = Securoman.GenerateToken(
             asymmetricKey,
             //TODO: Verify that there are no unnecessary database calls such that HttpContext.User.Claims is equal to _userManager.GetClaimsAsync(sessionUser)
-            await _userManager.GetClaimsAsync(sessionUser),
+            HttpContext.User.Claims,
             sessionUser.SecretKey,
             session.Id,
             exp);
