@@ -47,7 +47,7 @@ public class AuthUserManager : UserManager<User>
         {
             _loggingService.CreateLogHandle(user.LogHandleId, user.Id, "User");
             
-            //TODO: Isolate to method inside SecuromanService
+            /*//TODO: Isolate to method inside SecuromanService
             var userRoles = await GetRolesAsync(user);
             var rolePrincipal = new RolePrincipal();
             foreach (var userRole in userRoles)
@@ -60,7 +60,7 @@ public class AuthUserManager : UserManager<User>
                     rolePrincipal.Permissions.Add(
                         new RolePrincipal.UserPermission
                         {
-                            /*Issuer = roleClaim.Issuer,*/
+                            /*Issuer = roleClaim.Issuer,#1#
                             Type = roleClaim.Type,
                             Value = roleClaim.Value
                         });
@@ -73,7 +73,7 @@ public class AuthUserManager : UserManager<User>
                 SecretKey = user.SecretKey,
                 RolePrincipal = rolePrincipal
             };
-            _publishEndpoint.Publish(new UserCreated(userBadge));
+            _publishEndpoint.Publish(new UserCreated(userBadge));*/
             await base.AddClaimAsync(user, new Claim(UserClaimTypes.LogHandleId,user.LogHandleId.ToString()));
             await base.AddClaimAsync(user, new Claim(UserClaimTypes.UserType, user.UserType));
         }

@@ -93,6 +93,36 @@ public class AuthController : ControllerBase
         return BadRequest();
     }
 
+    [HttpGet("invalidate")]
+    public async Task<IActionResult> InvalidateUser()
+    {
+        var token = Request.Cookies[SecuromanDefaults.TokenCookie];
+        var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
+        var ticketClaims = unverifiedUserTicket?.ToList();
+        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        if(userId != null)
+            _publishEndpoint.Publish(new InvalidateUser(new Guid(userId)));
+        return Ok();
+    }
+    [HttpGet("signout")]
+    public async Task<IActionResult> SignUserOut()
+    {
+        var userId = HttpContext.User.Claims.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        if(userId != null)
+            _publishEndpoint.Publish(new InvalidateUser(new Guid(userId)));
+        await _userSignInManager.SignOutAsync();
+        Response.Cookies.Delete(SecuromanDefaults.TokenCookie);
+        return Ok();
+    }
+    
+    [HttpGet("invalidate/{userId:guid}")]
+    public async Task<IActionResult> InvalidateUserWithId(Guid userId)
+    {
+        _publishEndpoint.Publish(new InvalidateUser(userId));
+        return Ok();
+    }
+
+
     [HttpGet("refreshBadge")]
     [Authorize(Policy = Policies.AUTHENTICATED)]
     public async Task<IActionResult> RefreshBadge()
