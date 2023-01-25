@@ -60,7 +60,7 @@ public class AuthUserManager : UserManager<User>
                     rolePrincipal.Permissions.Add(
                         new RolePrincipal.UserPermission
                         {
-                            Issuer = roleClaim.Issuer,
+                            /*Issuer = roleClaim.Issuer,*/
                             Type = roleClaim.Type,
                             Value = roleClaim.Value
                         });

@@ -2,7 +2,6 @@ using System.Net;
 using System.Security.Claims;
 using AuthService.Core;
 using CommonLibrary.AspNetCore.Identity;
-using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -151,7 +150,12 @@ public class UserSessionStore : ITicketStore
     // Request start
     public async Task<AuthenticationTicket?> RetrieveAsync(string key)
     {
-        var bytes =  await _cache.GetAsync(key);
+        var bytes = await _cache.GetAsync(key);
+        if (bytes == null || bytes.Length == 0)
+        { 
+            await RemoveAsync(key);
+            return null;
+        }
         var ticket = Pasetoman.DeserializeFromBytes(bytes);
         return ticket;
     }

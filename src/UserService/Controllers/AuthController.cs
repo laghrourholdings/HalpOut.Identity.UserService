@@ -124,7 +124,7 @@ public class AuthController : ControllerBase
                     rolePrincipal.Permissions.Add(
                         new RolePrincipal.UserPermission
                         {
-                            Issuer = roleClaim.Issuer,
+                            /*Issuer = roleClaim.Issuer,*/
                             Type = roleClaim.Type,
                             Value = roleClaim.Value
                         });
@@ -147,63 +147,70 @@ public class AuthController : ControllerBase
     [Authorize(Policy = Policies.AUTHENTICATED)]
     public async Task<IActionResult> RefreshToken()
     {
-        var token = HttpContext.Request.Cookies[SecuromanDefaults.TokenCookie];
-        var unsecurePayload = Securoman.GetUnverifiedUserTicket(token);
-        if(unsecurePayload is null)
-            return BadRequest("Please re-authenticate");
-        var userId = HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
-        // Get authenticated user
-        var sessionUser = _dbContext.Users
-            .Include(x => x.UserSessions)
-            .ThenInclude(x => x.Device).SingleOrDefault(x => x.Id == new Guid(userId));
-        if (sessionUser == null)
-            return BadRequest("Please re-authenticate");
-        
-        var tokenSessionId = new Guid(unsecurePayload.First(x => x.Type == UserClaimTypes.UserSessionId).Value);
-        var session = sessionUser.UserSessions.FirstOrDefault(s => 
+        try
+        {
+            var token = HttpContext.Request.Cookies[SecuromanDefaults.TokenCookie];
+            var unsecurePayload = Securoman.GetUnverifiedUserTicket(token);
+            if (unsecurePayload is null)
+                return BadRequest("Please re-authenticate");
+            var userId = HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+            // Get authenticated user
+            var sessionUser = _dbContext.Users
+                .Include(x => x.UserSessions)
+                .ThenInclude(x => x.Device).SingleOrDefault(x => x.Id == new Guid(userId));
+            if (sessionUser == null)
+                return BadRequest("Please re-authenticate");
+
+            var tokenSessionId = new Guid(unsecurePayload.First(x => x.Type == UserClaimTypes.UserSessionId).Value);
+            var session = sessionUser.UserSessions.FirstOrDefault(s =>
                 s.Id == tokenSessionId);
-        
-        if (session is null)
-            return BadRequest("Please re-authenticate");
 
-        var param = Securoman.DefaultParameters;
-        param.ValidateLifetime = false;
-        var verificationResult = Securoman.VerifyToken(
-            token,
-            session.PublicKey, param);
-        
-        if (!verificationResult.Result.IsValid || verificationResult.HasInvalidSecretKey)
-        {
-            return BadRequest("Please re-authenticate");
-        }
+            if (session is null)
+                return BadRequest("Please re-authenticate");
 
-        var callerDevice = Deviceman.CreateDevice(
-            HttpContext.Request.Headers["User-Agent"],
-            HttpContext.Connection.RemoteIpAddress.ToString(),
-            new Guid(userId));
-        if (session.IsDeleted || session.Device.Hash != callerDevice.Hash)
-        {
-            await _userSignInManager.SignOutAsync();
-            Response.Cookies.Delete(SecuromanDefaults.TokenCookie);
-            return BadRequest("Please re-authenticate");
-        }
-        
-        var exp = DateTimeOffset.UtcNow.AddMinutes(5);
-        var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
-        //TODO: FIX _USERMANAGER.GETGETCLAIMSASYNC()
-        var newToken = Securoman.GenerateToken(
-            asymmetricKey,
-            //TODO: Verify that there are no unnecessary database calls such that HttpContext.User.Claims is equal to _userManager.GetClaimsAsync(sessionUser)
-            HttpContext.User.Claims,
-            sessionUser.SecretKey,
-            session.Id,
-            exp);
-            HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
-            newToken, new CookieOptions
+            var param = Securoman.DefaultParameters;
+            param.ValidateLifetime = false;
+            var verificationResult = Securoman.VerifyToken(
+                token,
+                session.PublicKey, param);
+
+            if (!verificationResult.Result.IsValid || verificationResult.HasInvalidSecretKey)
             {
-                Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
-            });
-        return Ok(newToken);
+                return BadRequest("Please re-authenticate");
+            }
+
+            var callerDevice = Deviceman.CreateDevice(
+                HttpContext.Request.Headers["User-Agent"],
+                HttpContext.Connection.RemoteIpAddress.ToString(),
+                new Guid(userId));
+            if (session.IsDeleted || session.Device.Hash != callerDevice.Hash)
+            {
+                await _userSignInManager.SignOutAsync();
+                Response.Cookies.Delete(SecuromanDefaults.TokenCookie);
+                return BadRequest("Please re-authenticate");
+            }
+
+            var exp = DateTimeOffset.UtcNow.AddMinutes(5);
+            var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
+            //TODO: FIX _USERMANAGER.GETGETCLAIMSASYNC()
+            var newToken = Securoman.GenerateToken(
+                asymmetricKey,
+                //TODO: Verify that there are no unnecessary database calls such that HttpContext.User.Claims is equal to _userManager.GetClaimsAsync(sessionUser)
+                HttpContext.User.Claims,
+                sessionUser.SecretKey,
+                session.Id,
+                exp);
+            HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
+                newToken, new CookieOptions
+                {
+                    Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                });
+            return Ok(newToken);
+        }
+        catch (Exception exception)
+        {
+            return BadRequest("Please re-authenticate");
+        }
     }
     
     [AllowAnonymous]

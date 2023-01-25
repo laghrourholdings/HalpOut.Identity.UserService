@@ -1,4 +1,3 @@
-using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authorization;
 
 namespace AuthService.Identity;
