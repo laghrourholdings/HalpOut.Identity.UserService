@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using AuthService.Core;
 using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,10 @@ public class UserSessionStore : ITicketStore
         var httpContext = httpContextAccessor?.HttpContext;
         if (authDbContext == null) 
             throw new Exception("AuthDbContext is null");
-        var user = await authDbContext.Users.Include(x=>x.UserSessions).ThenInclude(x=>x.Device).SingleOrDefaultAsync(x => x.Id.ToString() == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+        var user = await authDbContext.Users
+            .Include(x=>x.UserSessions)
+            .ThenInclude(x=>x.Device)
+            .SingleOrDefaultAsync(x => x.Id.ToString() == ticket.Principal.FindFirstValue(UserClaimTypes.Id));
         if (user is null) return;
         var asymmetricKey = Pasetoman.GenerateAsymmetricKeyPair();
         var session = new UserSession
@@ -68,7 +72,8 @@ public class UserSessionStore : ITicketStore
         httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             token, new CookieOptions
             {
-                Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                Secure = true
             });
         
         var options = new DistributedCacheEntryOptions();
@@ -106,7 +111,7 @@ public class UserSessionStore : ITicketStore
         var user = await authDbContext.Users
             .Include(x=>x.UserSessions)
             .ThenInclude(x=>x.Device)
-            .SingleOrDefaultAsync(x => x.Id.ToString() == ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier));
+            .SingleOrDefaultAsync(x => x.Id.ToString() == ticket.Principal.FindFirstValue(UserClaimTypes.Id));
         var session = user?.UserSessions.SingleOrDefault(x=>x.CacheKey == key);
         if (session != null) switch (session.IsDeleted)
         {
@@ -136,7 +141,8 @@ public class UserSessionStore : ITicketStore
                 httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 token, new CookieOptions
                     {
-                        Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                        //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                        Secure = true
                     });
                 break;
             }

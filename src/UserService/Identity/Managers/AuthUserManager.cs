@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Identity.Models;
 using MassTransit;
@@ -45,37 +44,9 @@ public class AuthUserManager : UserManager<User>
         var response = await base.CreateAsync(user, password);
         if (response.Succeeded)
         {
-            _loggingService.CreateLogHandle(user.LogHandleId, user.Id, "User");
-            
-            /*//TODO: Isolate to method inside SecuromanService
-            var userRoles = await GetRolesAsync(user);
-            var rolePrincipal = new RolePrincipal();
-            foreach (var userRole in userRoles)
-            {
-                var role = await _roleManager.FindByNameAsync(userRole);
-                if (role == null) continue;
-                var roleClaims = await _roleManager.GetClaimsAsync(role);
-                foreach (var roleClaim in roleClaims)
-                {
-                    rolePrincipal.Permissions.Add(
-                        new RolePrincipal.UserPermission
-                        {
-                            /*Issuer = roleClaim.Issuer,#1#
-                            Type = roleClaim.Type,
-                            Value = roleClaim.Value
-                        });
-                }
-            }
-            var userBadge = new UserBadge()
-            {
-                LogHandleId = user.LogHandleId,
-                UserId = user.Id,
-                SecretKey = user.SecretKey,
-                RolePrincipal = rolePrincipal
-            };
-            _publishEndpoint.Publish(new UserCreated(userBadge));*/
             await base.AddClaimAsync(user, new Claim(UserClaimTypes.LogHandleId,user.LogHandleId.ToString()));
-            await base.AddClaimAsync(user, new Claim(UserClaimTypes.UserType, user.UserType));
+            await base.AddClaimAsync(user, new Claim(UserClaimTypes.Type, user.UserType));
+            _loggingService.CreateLogHandle(user.LogHandleId, user.Id, "User");
         }
         return response;
     }

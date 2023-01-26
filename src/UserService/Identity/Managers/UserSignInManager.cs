@@ -4,23 +4,6 @@ using Microsoft.Extensions.Options;
 
 namespace AuthService.Identity;
 
-/*public class UserClaimsPrincipleFactory : IUserClaimsPrincipalFactory<User>
-{
-    public Task<ClaimsPrincipal> CreateAsync(User user)
-    {
-        return Task.Factory.StartNew(() =>
-        {
-            var identity = new ClaimsIdentity(IdentityConstants.ApplicationScheme);
-            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
-            identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
-            identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
-            var principle = new ClaimsPrincipal(identity);
-
-            return principle;
-        });
-    }
-}*/
-
 public class UserSignInManager : SignInManager<User>
 {
     public UserSignInManager(

@@ -4,6 +4,8 @@ using System.Text.Json;
 using AuthService.Core;
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.AspNetCore.Identity.Policies;
+using CommonLibrary.AspNetCore.Identity.Roles;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Identity.Models;
 using CommonLibrary.Identity.Models.Dtos;
@@ -99,7 +101,7 @@ public class AuthController : ControllerBase
         var token = Request.Cookies[SecuromanDefaults.TokenCookie];
         var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
-        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
         if(userId != null)
             _publishEndpoint.Publish(new InvalidateUser(new Guid(userId)));
         return Ok();
@@ -107,7 +109,7 @@ public class AuthController : ControllerBase
     [HttpGet("signout")]
     public async Task<IActionResult> SignUserOut()
     {
-        var userId = HttpContext.User.Claims.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
+        var userId = HttpContext.User.Claims.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
         if(userId != null)
             _publishEndpoint.Publish(new InvalidateUser(new Guid(userId)));
         await _userSignInManager.SignOutAsync();
@@ -124,14 +126,14 @@ public class AuthController : ControllerBase
 
 
     [HttpGet("refreshBadge")]
-    [Authorize(Policy = Policies.AUTHENTICATED)]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
     public async Task<IActionResult> RefreshBadge()
     {
         var token = Request.Cookies[SecuromanDefaults.TokenCookie];
         var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
-        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == ClaimTypes.NameIdentifier)?.Value;
-        var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.UserSessionId)?.Value;
+        var userId = ticketClaims?.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
+        var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.SessionId)?.Value;
         if (userId == null || sessionId == null) return NotFound();
         var user = _userManager.Users.FirstOrDefault(x=>x.Id == new Guid(userId));
         
@@ -152,7 +154,7 @@ public class AuthController : ControllerBase
                 foreach (var roleClaim in roleClaims)
                 {
                     rolePrincipal.Permissions.Add(
-                        new RolePrincipal.UserPermission
+                        new UserPermission
                         {
                             /*Issuer = roleClaim.Issuer,*/
                             Type = roleClaim.Type,
@@ -174,7 +176,7 @@ public class AuthController : ControllerBase
     }
     
     [HttpGet("refreshToken")]
-    [Authorize(Policy = Policies.AUTHENTICATED)]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
     public async Task<IActionResult> RefreshToken()
     {
         try
@@ -183,7 +185,7 @@ public class AuthController : ControllerBase
             var unsecurePayload = Securoman.GetUnverifiedUserTicket(token);
             if (unsecurePayload is null)
                 return BadRequest("Please re-authenticate");
-            var userId = HttpContext.User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+            var userId = HttpContext.User.Claims.First(x => x.Type == UserClaimTypes.Id).Value;
             // Get authenticated user
             var sessionUser = _dbContext.Users
                 .Include(x => x.UserSessions)
@@ -191,7 +193,7 @@ public class AuthController : ControllerBase
             if (sessionUser == null)
                 return BadRequest("Please re-authenticate");
 
-            var tokenSessionId = new Guid(unsecurePayload.First(x => x.Type == UserClaimTypes.UserSessionId).Value);
+            var tokenSessionId = new Guid(unsecurePayload.First(x => x.Type == UserClaimTypes.SessionId).Value);
             var session = sessionUser.UserSessions.FirstOrDefault(s =>
                 s.Id == tokenSessionId);
 
@@ -222,10 +224,8 @@ public class AuthController : ControllerBase
 
             var exp = DateTimeOffset.UtcNow.AddMinutes(5);
             var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
-            //TODO: FIX _USERMANAGER.GETGETCLAIMSASYNC()
             var newToken = Securoman.GenerateToken(
                 asymmetricKey,
-                //TODO: Verify that there are no unnecessary database calls such that HttpContext.User.Claims is equal to _userManager.GetClaimsAsync(sessionUser)
                 HttpContext.User.Claims,
                 sessionUser.SecretKey,
                 session.Id,
@@ -233,7 +233,8 @@ public class AuthController : ControllerBase
             HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 newToken, new CookieOptions
                 {
-                    Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                    //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                    Secure = true
                 });
             return Ok(newToken);
         }
@@ -269,9 +270,9 @@ public class AuthController : ControllerBase
             adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Rights, "projects.create", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Right, "projects.create", ClaimValueTypes.String, "UserService"));
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Rights, "projects.read", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Right, "projects.read", ClaimValueTypes.String, "UserService"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

@@ -2,6 +2,8 @@ using AuthService.Core;
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Core;
 using CommonLibrary.AspNetCore.Identity;
+using CommonLibrary.AspNetCore.Identity.Policies;
+using CommonLibrary.Identity.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +16,7 @@ var  MyAllowSpecificOrigins = "7";
 
 var logger = new LoggerConfiguration().WriteTo.Console();
 builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection(nameof(DatabaseSettings)));
-builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins, false);
+builder.Services.AddCommonLibrary(builder.Configuration, builder.Logging, logger , MyAllowSpecificOrigins,null, false);
 builder.Services.AddSwaggerGen();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -23,13 +25,19 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UserAuthori
 builder.Services.AddScoped<UserManager<User>, AuthUserManager>();
 builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
     {
+        options.ClaimsIdentity.EmailClaimType = UserClaimTypes.Email;
+        options.ClaimsIdentity.RoleClaimType = UserClaimTypes.Role;
+        options.ClaimsIdentity.SecurityStampClaimType = UserClaimTypes.SecurityStamp;
+        options.ClaimsIdentity.UserIdClaimType = UserClaimTypes.Id;
+        options.ClaimsIdentity.UserNameClaimType = UserClaimTypes.Name;
         //options.SignIn.RequireConfirmedAccount = true;
         //options.Password.RequiredLength = 8;
         //options.Password.RequireDigit = true;
     })
     .AddSignInManager<UserSignInManager>()
     .AddDefaultTokenProviders()
-    .AddEntityFrameworkStores<UserDbContext>();
+    .AddEntityFrameworkStores<UserDbContext>()
+    ;//.AddClaimsPrincipalFactory<SecuromanUserClaimsPrincipaleFactory>();
 
 builder.Services.AddDbContext<UserDbContext>();
 
@@ -45,7 +53,7 @@ builder.Services.AddDbContext<UserDbContext>();
 //     .AddEntityFrameworkStores<AuthIdentityDbContext>();
 // 
 
-//builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, UserClaimsPrincipleFactory>();
+//builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, SecuromanUserClaimsPrincipaleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
@@ -59,7 +67,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     }, builder.Services);
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
-builder.Services.AddAuthorization(options => Policies.UserPolicies(options));
+builder.Services.AddAuthorization(options => UserPolicyFactory.GetPolicy().Enforce(options));
 
 var app = builder.Build();
 app.UseAuthentication();

@@ -1,0 +1,8 @@
+﻿syntax = "proto3";
+
+option csharp_namespace ="UserService";
+
+message RefreshTokenRequest {}
+
+message RefreshTokenBadge{}
+
