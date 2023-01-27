@@ -2,7 +2,44 @@
 
 option csharp_namespace ="UserService";
 
-message RefreshTokenRequest {}
+service GrpcUserService {
+  rpc Invalidate (InvalidateUserRequest) returns (InvalidateUserResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc RefreshBadge (RefreshBadgeRequest) returns (GrpcUserBadge);
+}
 
-message RefreshTokenBadge{}
+message RefreshTokenRequest {
+  string sessionId = 1;
+  string token = 2;
+}
+message RefreshTokenResponse {
+  string token = 1;
+}
+
+message InvalidateUserRequest {
+  string userId = 1;
+}
+message InvalidateUserResponse {
+  
+}
+
+message RefreshBadgeRequest{
+}
+
+message GrpcUserBadge{
+  string UserId = 1;
+  string LogHandleId = 2;
+  bytes SecretKey = 3;
+  GrpcRolePrincipal RolePrincipal = 4;
+}
+
+message GrpcUserPermission{
+  string Type = 1;
+  string Value = 2;
+}
+
+message GrpcRolePrincipal{
+  repeated string Roles = 1;
+  repeated GrpcUserPermission Permissions = 2;
+}
 

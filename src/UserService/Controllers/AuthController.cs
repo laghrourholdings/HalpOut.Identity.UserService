@@ -5,11 +5,11 @@ using AuthService.Core;
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Policies;
-using CommonLibrary.AspNetCore.Identity.Roles;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Identity.Models;
 using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
+using MassTransit.Initializers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -95,6 +95,81 @@ public class AuthController : ControllerBase
         return BadRequest();
     }
 
+    [HttpPost("role")]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
+    public async Task<IActionResult> CreateOrUpdateRole(RoleIdentity roleIdentity)
+    {
+        var existingRole = await _roleManager.FindByNameAsync(roleIdentity.Name);
+        if (existingRole != null)
+        {
+            var existingRoleClaims = await _roleManager.GetClaimsAsync(existingRole);
+            foreach (var existingRoleClaim in existingRoleClaims)
+            {
+                if (roleIdentity.Permissions.All(x=> x.Value != existingRoleClaim.Value))
+                    await _roleManager.RemoveClaimAsync(existingRole, existingRoleClaim);
+            }
+            foreach (var rolePermission in roleIdentity.Permissions)
+            {
+                if (existingRoleClaims.Any(x => x.Value == rolePermission.Value))
+                    continue;
+                await _roleManager.AddClaimAsync(existingRole,
+                    new Claim(rolePermission.Type, rolePermission.Value));
+            }
+        }
+        else
+        {
+            var newRole = new IdentityRole<Guid>(roleIdentity.Name);
+            await _roleManager.CreateAsync(newRole);
+            foreach (var permission in roleIdentity.Permissions)
+            {
+                await _roleManager.AddClaimAsync(newRole, 
+                    new Claim(permission.Type,permission.Value));
+            }
+        }
+        return Ok();
+    }
+
+    [HttpPost("user/role")]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
+    public async Task<IActionResult> AddUserToRole(UserRoleDto arg)
+    {
+        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
+        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
+        if(user == null) 
+            return BadRequest();
+        var userRoles = await _userManager.GetRolesAsync(user);
+        if (userRoles.Contains(arg.RoleName)) return Ok();
+        var role = await _roleManager.FindByNameAsync(arg.RoleName);
+        if (role == null) 
+            return BadRequest();
+        await _userManager.AddToRoleAsync(user, role.Name);
+        _loggingService.Information($"User now in {arg.RoleName}", user.LogHandleId);
+        _loggingService.Information($"Added user {user.Id} to role: {arg.RoleName}", new Guid(HttpContext.User.Claims.First(x=>x.Type == UserClaimTypes.LogHandleId).Value));
+        _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
+        return Ok();
+    }
+    
+    [HttpDelete("user/role")]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
+    public async Task<IActionResult> RemoveUserFromRole(UserRoleDto arg)
+    {
+        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
+        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
+        if(user == null) 
+            return BadRequest();
+        var userRoles = await _userManager.GetRolesAsync(user);
+        if (userRoles.Contains(arg.RoleName))
+        { 
+            _userManager.RemoveFromRoleAsync(user, arg.RoleName);
+            _loggingService.Information($"User removed from role {arg.RoleName}", user.LogHandleId);
+            _loggingService.Information($"Removed user {user.Id} from role: {arg.RoleName}", new Guid(HttpContext.User.Claims.First(x=>x.Type == UserClaimTypes.LogHandleId).Value));
+            _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
+        }
+        return Ok();
+    }
+    
+    
+
     [HttpGet("invalidate")]
     public async Task<IActionResult> InvalidateUser()
     {
@@ -107,6 +182,7 @@ public class AuthController : ControllerBase
         return Ok();
     }
     [HttpGet("signout")]
+    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
     public async Task<IActionResult> SignUserOut()
     {
         var userId = HttpContext.User.Claims.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
@@ -135,33 +211,35 @@ public class AuthController : ControllerBase
         var userId = ticketClaims?.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
         var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.SessionId)?.Value;
         if (userId == null || sessionId == null) return NotFound();
-        var user = _userManager.Users.FirstOrDefault(x=>x.Id == new Guid(userId));
-        
+        var user = _dbContext.Users.Include(x=>x.UserSessions).FirstOrDefault(x=>x.Id == new Guid(userId));
         //device not included in LINQ request
-        var session = _dbContext.UserSessions.FirstOrDefault(s => s.Id == new Guid(sessionId));
-        if (user == null || session == null || session.IsDeleted) return NotFound();
-        
+        if(user == null)
+            return NotFound();
+        var session = user.UserSessions.FirstOrDefault(s => s.Id == new Guid(sessionId));
+        if (session == null || session.IsDeleted) 
+            return NotFound();
         var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
         if (verificationResult.Result.IsValid)
         {
             var userRoles = await _userManager.GetRolesAsync(user);
-            var rolePrincipal = new RolePrincipal();
+            var rolePrincipal = new List<RoleIdentity>();
             foreach (var userRole in userRoles)
             {
+                var roleIdentity = new RoleIdentity();
                 var role = await _roleManager.FindByNameAsync(userRole);
                 if (role == null) continue;
+                roleIdentity.Name = userRole;
                 var roleClaims = await _roleManager.GetClaimsAsync(role);
                 foreach (var roleClaim in roleClaims)
                 {
-                    rolePrincipal.Permissions.Add(
+                    roleIdentity.Permissions.Add(
                         new UserPermission
                         {
-                            /*Issuer = roleClaim.Issuer,*/
                             Type = roleClaim.Type,
                             Value = roleClaim.Value
                         });
                 }
-                rolePrincipal.Roles.Add(role.Name);
+                rolePrincipal.Add(roleIdentity);
             }
             var userBadge = new UserBadge()
             {
@@ -270,9 +348,9 @@ public class AuthController : ControllerBase
             adminRole = new IdentityRole<Guid>("Admin");
             await _roleManager.CreateAsync(adminRole);
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Right, "projects.create", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Right, "projects.create"));
             await _roleManager.AddClaimAsync(adminRole, 
-                new Claim(UserClaimTypes.Right, "projects.read", ClaimValueTypes.String, "UserService"));
+                new Claim(UserClaimTypes.Right, "projects.read"));
         }
         if (!await _userManager.IsInRoleAsync(user, adminRole.Name))
         {

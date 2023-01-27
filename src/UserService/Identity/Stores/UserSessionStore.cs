@@ -3,6 +3,7 @@ using System.Security.Claims;
 using AuthService.Core;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.Identity.Models;
+using MassTransit.Initializers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -159,8 +160,29 @@ public class UserSessionStore : ITicketStore
         var bytes = await _cache.GetAsync(key);
         if (bytes == null || bytes.Length == 0)
         { 
-            await RemoveAsync(key);
-            return null;
+            using (var scope = _services.BuildServiceProvider().CreateScope())
+            {
+                var context = scope.ServiceProvider.GetService<UserDbContext>();
+                if (context != null)
+                {
+                    var session = context.UserSessions.SingleOrDefault(x => x.CacheKey == key);
+                    if (session?.ExpirationDate != null && session.IsDeleted == false)
+                    {
+                        var options = new DistributedCacheEntryOptions();
+                        options.SetAbsoluteExpiration(session.ExpirationDate.Value);
+                        await _cache.SetAsync(key, session.AuthenticationTicket, options);
+                        bytes = session.AuthenticationTicket;
+                    }else if (session?.IsDeleted == true)
+                    {
+                        context.UserSessions.Remove(session);
+                        await context.SaveChangesAsync();
+                    }
+                }
+                else
+                {
+                    throw new NullReferenceException("UserDbContext is null");
+                }
+            }
         }
         var ticket = Pasetoman.DeserializeFromBytes(bytes);
         return ticket;
@@ -180,6 +202,10 @@ public class UserSessionStore : ITicketStore
                     context.UserSessions.Remove(userSession);
                     await context.SaveChangesAsync();
                 }
+            }
+            else
+            {
+                throw new NullReferenceException("UserDbContext is null");
             }
         }
     }

@@ -68,11 +68,9 @@ builder.Services.ConfigureApplicationCookie(options =>
     //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
 builder.Services.AddAuthorization(options => UserPolicyFactory.GetPolicy().Enforce(options));
-
+//builder.Services.AddGrpc();
 var app = builder.Build();
-app.UseAuthentication();
 app.UseCommonLibrary(MyAllowSpecificOrigins);
-app.UseAuthorization();
 if (app.Environment.IsDevelopment()) 
 {
     app.UseSwagger();

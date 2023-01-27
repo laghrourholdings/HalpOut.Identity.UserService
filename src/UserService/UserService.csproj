@@ -34,6 +34,10 @@
       <Folder Include="Identity\Models\Dtos" />
       <Folder Include="Migrations" />
     </ItemGroup>
+    
+    <ItemGroup>
+        <Protobuf Include="Identity\Protos\securoman.proto" GrpcServices="Server" />
+    </ItemGroup>
 
 
 </Project>
