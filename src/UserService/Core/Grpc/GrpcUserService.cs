@@ -68,8 +68,8 @@ public class GrpcUserService : UserService.GrpcUserService.GrpcUserServiceBase
             if (role == null) continue;
             var roleClaims = await _roleManager.GetClaimsAsync(role);
             foreach (var roleClaim in roleClaims)
-                rolePrincipal.Permissions.Add(
-                    new UserPermission
+                rolePrincipal.Properties.Add(
+                    new RoleProperty
                     {
                         /*Issuer = roleClaim.Issuer,#1#
                         Type = roleClaim.Type,

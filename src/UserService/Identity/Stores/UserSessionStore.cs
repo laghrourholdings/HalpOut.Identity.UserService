@@ -73,7 +73,7 @@ public class UserSessionStore : ITicketStore
         httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
             token, new CookieOptions
             {
-                //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
                 Secure = true
             });
         
@@ -142,7 +142,7 @@ public class UserSessionStore : ITicketStore
                 httpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 token, new CookieOptions
                     {
-                        //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0))
+                        Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
                         Secure = true
                     });
                 break;

@@ -22,7 +22,7 @@ namespace AuthService.Controllers;
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
 [ApiController]
-public class AuthController : ControllerBase
+public class UserController : ControllerBase
 {
     private readonly UserDbContext _dbContext;
     private readonly UserSignInManager _userSignInManager;
@@ -31,7 +31,7 @@ public class AuthController : ControllerBase
     private readonly ILoggingService _loggingService;
     private IPublishEndpoint _publishEndpoint;
 
-    public AuthController(
+    public UserController(
         UserDbContext dbContext,
         UserSignInManager userSignInManager,
         UserManager<User> manager,
@@ -84,91 +84,18 @@ public class AuthController : ControllerBase
             if (result.Succeeded)
             {
                 await _userSignInManager.SignInAsync(user, true);
-                var token = GetResponseCookieData()[SecuromanDefaults.TokenCookie];
-                var verificationResult = Securoman.VerifyTokenWithSecret(token, user.SecretKey);
+                // var token = GetResponseCookieData()[SecuromanDefaults.TokenCookie];
+                // var verificationResult = Securoman.VerifyTokenWithSecret(token, user.SecretKey);
                 _loggingService.Information(
                     $"User logged in with device: {HttpContext.Request.Headers.UserAgent}", user.LogHandleId);
-                return Ok(new { PK = Encoding.UTF8.GetString(verificationResult.PublicKey) });
+                return Ok(/*new { PK = Encoding.UTF8.GetString(verificationResult.PublicKey) }*/);
             }
         }
         _loggingService.Information($"Logging failed for {userCredentialsDto.Username}");
         return BadRequest();
     }
 
-    [HttpPost("role")]
-    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
-    public async Task<IActionResult> CreateOrUpdateRole(RoleIdentity roleIdentity)
-    {
-        var existingRole = await _roleManager.FindByNameAsync(roleIdentity.Name);
-        if (existingRole != null)
-        {
-            var existingRoleClaims = await _roleManager.GetClaimsAsync(existingRole);
-            foreach (var existingRoleClaim in existingRoleClaims)
-            {
-                if (roleIdentity.Permissions.All(x=> x.Value != existingRoleClaim.Value))
-                    await _roleManager.RemoveClaimAsync(existingRole, existingRoleClaim);
-            }
-            foreach (var rolePermission in roleIdentity.Permissions)
-            {
-                if (existingRoleClaims.Any(x => x.Value == rolePermission.Value))
-                    continue;
-                await _roleManager.AddClaimAsync(existingRole,
-                    new Claim(rolePermission.Type, rolePermission.Value));
-            }
-        }
-        else
-        {
-            var newRole = new IdentityRole<Guid>(roleIdentity.Name);
-            await _roleManager.CreateAsync(newRole);
-            foreach (var permission in roleIdentity.Permissions)
-            {
-                await _roleManager.AddClaimAsync(newRole, 
-                    new Claim(permission.Type,permission.Value));
-            }
-        }
-        return Ok();
-    }
 
-    [HttpPost("user/role")]
-    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
-    public async Task<IActionResult> AddUserToRole(UserRoleDto arg)
-    {
-        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
-        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
-        if(user == null) 
-            return BadRequest();
-        var userRoles = await _userManager.GetRolesAsync(user);
-        if (userRoles.Contains(arg.RoleName)) return Ok();
-        var role = await _roleManager.FindByNameAsync(arg.RoleName);
-        if (role == null) 
-            return BadRequest();
-        await _userManager.AddToRoleAsync(user, role.Name);
-        _loggingService.Information($"User now in {arg.RoleName}", user.LogHandleId);
-        _loggingService.Information($"Added user {user.Id} to role: {arg.RoleName}", new Guid(HttpContext.User.Claims.First(x=>x.Type == UserClaimTypes.LogHandleId).Value));
-        _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
-        return Ok();
-    }
-    
-    [HttpDelete("user/role")]
-    [Authorize(Policy = UserPolicy.AUTHENTICATED)]
-    public async Task<IActionResult> RemoveUserFromRole(UserRoleDto arg)
-    {
-        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
-        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
-        if(user == null) 
-            return BadRequest();
-        var userRoles = await _userManager.GetRolesAsync(user);
-        if (userRoles.Contains(arg.RoleName))
-        { 
-            _userManager.RemoveFromRoleAsync(user, arg.RoleName);
-            _loggingService.Information($"User removed from role {arg.RoleName}", user.LogHandleId);
-            _loggingService.Information($"Removed user {user.Id} from role: {arg.RoleName}", new Guid(HttpContext.User.Claims.First(x=>x.Type == UserClaimTypes.LogHandleId).Value));
-            _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
-        }
-        return Ok();
-    }
-    
-    
 
     [HttpGet("invalidate")]
     public async Task<IActionResult> InvalidateUser()
@@ -221,7 +148,7 @@ public class AuthController : ControllerBase
         var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
         if (verificationResult.Result.IsValid)
         {
-            var userRoles = await _userManager.GetRolesAsync(user);
+            /*var userRoles = await _userManager.GetRolesAsync(user);
             var rolePrincipal = new List<RoleIdentity>();
             foreach (var userRole in userRoles)
             {
@@ -232,21 +159,21 @@ public class AuthController : ControllerBase
                 var roleClaims = await _roleManager.GetClaimsAsync(role);
                 foreach (var roleClaim in roleClaims)
                 {
-                    roleIdentity.Permissions.Add(
-                        new UserPermission
+                    roleIdentity.Properties.Add(
+                        new RoleProperty
                         {
                             Type = roleClaim.Type,
                             Value = roleClaim.Value
                         });
                 }
                 rolePrincipal.Add(roleIdentity);
-            }
+            }*/
             var userBadge = new UserBadge()
             {
                 LogHandleId = user.LogHandleId,
                 UserId = user.Id,
                 SecretKey = user.SecretKey,
-                RolePrincipal = rolePrincipal
+                //RolePrincipal = rolePrincipal
             };
             return Ok(userBadge);
         }
@@ -311,10 +238,10 @@ public class AuthController : ControllerBase
             HttpContext.Response.Cookies.Append(SecuromanDefaults.TokenCookie,
                 newToken, new CookieOptions
                 {
-                    //Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                    Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
                     Secure = true
                 });
-            return Ok(newToken);
+            return Ok();
         }
         catch (Exception exception)
         {
@@ -363,6 +290,63 @@ public class AuthController : ControllerBase
         }
         //await _userSignInManager.SignInAsync(user,true);
         return Ok();
+    }
+    
+    [HttpPost("role")]
+    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
+    public async Task<IActionResult> AddUserToRole([FromBody] UserRoleDto arg)
+    {
+        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
+        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
+        if(user == null) 
+            return BadRequest();
+        var userRoles = await _userManager.GetRolesAsync(user);
+        if (userRoles.Contains(arg.RoleName)) return Ok();
+        var role = await _roleManager.FindByNameAsync(arg.RoleName);
+        if (role == null) 
+            return BadRequest();
+        await _userManager.AddToRoleAsync(user, role.Name);
+        _loggingService.Information($"User now in {arg.RoleName}", user.LogHandleId);
+        _loggingService.Information($"Added user {user.Id} to role: {arg.RoleName}",new Guid(User.FindFirst(UserClaimTypes.LogHandleId).Value));
+        _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
+        await _userSignInManager.RefreshSignInAsync(user);
+        return Ok();
+    }
+    
+    [HttpDelete("role")]
+    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
+    public async Task<IActionResult> RemoveUserFromRole(UserRoleDto arg)
+    {
+        //var user = await _userManager.FindByIdAsync(arg.UserId.ToString());
+        var user =  _userManager.Users.SingleOrDefault(x => x.Id == arg.UserId);
+        if(user == null) 
+            return BadRequest();
+        var userRoles = await _userManager.GetRolesAsync(user);
+        if (userRoles.Contains(arg.RoleName))
+        { 
+            await _userManager.RemoveFromRoleAsync(user, arg.RoleName);
+            _loggingService.Information($"User removed from role {arg.RoleName}", user.LogHandleId);
+            _loggingService.Information($"Removed user {user.Id} from role: {arg.RoleName}", new Guid(User.FindFirst(UserClaimTypes.LogHandleId).Value));
+            await _userSignInManager.RefreshSignInAsync(user);
+            _publishEndpoint.Publish(new InvalidateUser(arg.UserId));
+        }
+        return Ok();
+    }
+    
+    [HttpGet("{userId:guid}/roles")]
+    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
+    public async Task<IActionResult> GetRoles(Guid userId)
+    {
+        var roles = (await _userManager.GetRolesAsync(new User{Id = userId})).ToList();
+        List<RoleIdentity> rolePrincipal = new();
+        roles.ForEach( x=>  rolePrincipal.Add(new RoleIdentity
+        {
+            Name = x,
+            Properties =  _roleManager
+                .GetClaimsAsync(_roleManager.FindByNameAsync(x).Result)
+                .Result.Select(y=> new RoleProperty{Type = y.Type, Value = y.Value}).ToList()
+        }));
+        return Ok(rolePrincipal);
     }
     
     
