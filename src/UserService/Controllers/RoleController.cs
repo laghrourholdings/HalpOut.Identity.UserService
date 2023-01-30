@@ -1,21 +1,15 @@
 ﻿using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
 using AuthService.Core;
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Policies;
 using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Identity.Models;
-using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
-using MassTransit.Initializers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Deviceman = AuthService.Identity.Deviceman;
-using Securoman = CommonLibrary.AspNetCore.Identity.Securoman;
 
 namespace AuthService.Controllers;
 

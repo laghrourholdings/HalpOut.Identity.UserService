@@ -3,7 +3,6 @@ using System.Security.Claims;
 using AuthService.Core;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.Identity.Models;
-using MassTransit.Initializers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;

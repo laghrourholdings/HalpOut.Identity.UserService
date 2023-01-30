@@ -44,7 +44,7 @@ public class GrpcUserService : UserService.GrpcUserService.GrpcUserServiceBase
         RefreshBadge(RefreshBadgeRequest request, ServerCallContext context)
     {
         var token = context.GetHttpContext().Request.Cookies[SecuromanDefaults.TokenCookie];
-        var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
+        var unverifiedUserTicket = Securoman.GetUnverifiedUserClaims(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
         var userId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.Id)?.Value;
         var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.SessionId)?.Value;

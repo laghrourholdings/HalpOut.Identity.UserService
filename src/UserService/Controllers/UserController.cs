@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
 using AuthService.Core;
 using AuthService.Identity;
@@ -9,7 +8,6 @@ using CommonLibrary.AspNetCore.Logging;
 using CommonLibrary.Identity.Models;
 using CommonLibrary.Identity.Models.Dtos;
 using MassTransit;
-using MassTransit.Initializers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -101,7 +99,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> InvalidateUser()
     {
         var token = Request.Cookies[SecuromanDefaults.TokenCookie];
-        var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
+        var unverifiedUserTicket = Securoman.GetUnverifiedUserClaims(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
         var userId = ticketClaims?.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
         if(userId != null)
@@ -133,7 +131,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> RefreshBadge()
     {
         var token = Request.Cookies[SecuromanDefaults.TokenCookie];
-        var unverifiedUserTicket = Securoman.GetUnverifiedUserTicket(token);
+        var unverifiedUserTicket = Securoman.GetUnverifiedUserClaims(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
         var userId = ticketClaims?.FirstOrDefault(x=>x.Type == UserClaimTypes.Id)?.Value;
         var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.SessionId)?.Value;
@@ -187,7 +185,7 @@ public class UserController : ControllerBase
         try
         {
             var token = HttpContext.Request.Cookies[SecuromanDefaults.TokenCookie];
-            var unsecurePayload = Securoman.GetUnverifiedUserTicket(token);
+            var unsecurePayload = Securoman.GetUnverifiedUserClaims(token);
             if (unsecurePayload is null)
                 return BadRequest("Please re-authenticate");
             var userId = HttpContext.User.Claims.First(x => x.Type == UserClaimTypes.Id).Value;
@@ -241,7 +239,7 @@ public class UserController : ControllerBase
                     Expires = new DateTimeOffset(2038, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
                     Secure = true
                 });
-            return Ok();
+            return Ok(newToken);
         }
         catch (Exception exception)
         {
