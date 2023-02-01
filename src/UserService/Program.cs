@@ -4,7 +4,6 @@ using CommonLibrary.AspNetCore.Core;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Identity.Policies;
 using CommonLibrary.Identity.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Redis;
@@ -21,7 +20,6 @@ builder.Services.AddSwaggerGen();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 //Identity
-builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UserAuthorizationMiddlewareResultHandler>();
 builder.Services.AddScoped<UserManager<User>, AuthUserManager>();
 builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
     {
@@ -40,20 +38,6 @@ builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
     ;//.AddClaimsPrincipalFactory<SecuromanUserClaimsPrincipaleFactory>();
 
 builder.Services.AddDbContext<UserDbContext>();
-
-// builder.Services.AddIdentityCore<User>(options =>
-//     {
-//         //options.SignIn.RequireConfirmedAccount = true;
-//         //options.Password.RequiredLength = 8;
-//         //options.Password.RequireDigit = true;
-//     })
-//     .AddRoles<IdentityRole>()
-//     .AddSignInManager<UserSignInManager>()
-//     .AddDefaultTokenProviders()
-//     .AddEntityFrameworkStores<AuthIdentityDbContext>();
-// 
-
-//builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, SecuromanUserClaimsPrincipaleFactory>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
@@ -65,7 +49,6 @@ builder.Services.ConfigureApplicationCookie(options =>
     {
         Configuration = builder.Configuration.GetSection(nameof(DatabaseSettings)).Get<DatabaseSettings>().SessionCacheRedisConfigurationString
     }, builder.Services);
-    //new UserSessionStore(builder.Services.BuildServiceProvider());
 });
 builder.Services.AddAuthorization(options => UserPolicyFactory.GetPolicy().Enforce(options));
 //builder.Services.AddGrpc();

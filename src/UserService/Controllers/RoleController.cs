@@ -16,6 +16,7 @@ namespace AuthService.Controllers;
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
 [ApiController]
+[Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
 public class RoleController : ControllerBase
 {
     private readonly UserDbContext _dbContext;
@@ -41,7 +42,6 @@ public class RoleController : ControllerBase
         _publishEndpoint = publishEndpoint;
     }
     [HttpGet("")]
-    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
     public async Task<IActionResult> GetRoles()
     {
         var roles = await _roleManager.Roles.ToListAsync();
@@ -55,7 +55,6 @@ public class RoleController : ControllerBase
     }
 
     [HttpPost("")]
-    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
     public async Task<IActionResult> CreateOrUpdateRole(RoleIdentity roleIdentity)
     {
         var existingRole = await _roleManager.FindByNameAsync(roleIdentity.Name);
@@ -90,7 +89,6 @@ public class RoleController : ControllerBase
     }
     
     [HttpDelete("")]
-    [Authorize(Policy = UserPolicy.ELEVATED_RIGHTS)]
     public async Task<IActionResult> DeleteRole(string roleName)
     {
         var role = await _roleManager.FindByNameAsync(roleName);

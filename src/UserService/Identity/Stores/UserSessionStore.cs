@@ -63,7 +63,7 @@ public class UserSessionStore : ITicketStore
         
         
         var exp = DateTimeOffset.UtcNow.AddMinutes(5);
-        var token = Securoman.GenerateToken(
+        var token = SecuromanTokenizer.GenerateToken(
             asymmetricKey,
             ticket.Principal.Claims,
             user.SecretKey,
@@ -132,7 +132,7 @@ public class UserSessionStore : ITicketStore
                 await authDbContext.SaveChangesAsync();
                 var exp = DateTimeOffset.UtcNow.AddMinutes(5);
                 var asymmetricKey = Pasetoman.AsymmetricKeyPair(session.PrivateKey, session.PublicKey);
-                var token = Securoman.GenerateToken(
+                var token = SecuromanTokenizer.GenerateToken(
                     asymmetricKey,
                     ticket.Principal.Claims,
                     user.SecretKey,

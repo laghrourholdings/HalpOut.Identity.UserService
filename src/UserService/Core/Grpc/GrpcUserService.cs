@@ -44,7 +44,7 @@ public class GrpcUserService : UserService.GrpcUserService.GrpcUserServiceBase
         RefreshBadge(RefreshBadgeRequest request, ServerCallContext context)
     {
         var token = context.GetHttpContext().Request.Cookies[SecuromanDefaults.TokenCookie];
-        var unverifiedUserTicket = Securoman.GetUnverifiedUserClaims(token);
+        var unverifiedUserTicket = SecuromanTokenizer.GetUnverifiedUserClaims(token);
         var ticketClaims = unverifiedUserTicket?.ToList();
         var userId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.Id)?.Value;
         var sessionId = ticketClaims?.FirstOrDefault(x => x.Type == UserClaimTypes.SessionId)?.Value;
@@ -57,7 +57,7 @@ public class GrpcUserService : UserService.GrpcUserService.GrpcUserServiceBase
         var session = user.UserSessions.FirstOrDefault(s => s.Id == new Guid(sessionId));
         if (session == null || session.IsDeleted)
             return new GrpcUserBadge();
-        var verificationResult = Securoman.VerifyToken(token, session.PublicKey);
+        var verificationResult = SecuromanTokenizer.VerifyToken(token, session.PublicKey);
         if (!verificationResult.Result.IsValid) return new GrpcUserBadge();
 
         var userRoles = await _userManager.GetRolesAsync(user);
