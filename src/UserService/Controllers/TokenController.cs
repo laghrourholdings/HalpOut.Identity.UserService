@@ -2,7 +2,7 @@
 using AuthService.Identity;
 using CommonLibrary.AspNetCore.Identity;
 using CommonLibrary.AspNetCore.Logging;
-using CommonLibrary.Identity.Models;
+using CommonLibrary.Identity;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

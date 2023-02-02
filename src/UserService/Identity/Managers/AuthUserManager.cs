@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 using CommonLibrary.AspNetCore.Logging;
-using CommonLibrary.Identity.Models;
+using CommonLibrary.Identity;
 using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;

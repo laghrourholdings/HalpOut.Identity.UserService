@@ -2,7 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using AuthService.Core;
 using CommonLibrary.AspNetCore.Identity;
-using CommonLibrary.Identity.Models;
+using CommonLibrary.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
